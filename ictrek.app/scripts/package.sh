@@ -353,6 +353,10 @@ verify_package() {
   fi
   printf '%s\n' "$compose_text" | grep -Fq 'HeadersRegexp(`Sec-Fetch-Dest`, `document`)' || die 'top-level document redirect missing'
   printf '%s\n' "$compose_text" | grep -Fq "${ROUTER_HASH_PATH}" || die "top-level redirect must target ${ROUTER_HASH_PATH}"
+  printf '%s\n' "$compose_text" | grep -Eq '^  vos_default:$' || die 'docker-compose.yml must declare the vos_default network'
+  printf '%s\n' "$compose_text" | grep -Eq '^    external: true$' || die 'vos_default must be an external VOS network'
+  printf '%s\n' "$compose_text" | grep -Fq '        - desensitize-backend' || die 'backend must retain the desensitize-backend alias'
+  printf '%s\n' "$compose_text" | grep -Fq '        - desensitize-frontend' || die 'frontend must retain the desensitize-frontend alias'
 
   routers_text="$(tar xOf "$app_tarball" routers.yml)"
   printf '%s\n' "$routers_text" | grep -Fq "  - id: ${ROUTER_GROUP_ID}" || die "routers.yml group id must be ${ROUTER_GROUP_ID}"

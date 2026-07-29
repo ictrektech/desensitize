@@ -1,7 +1,9 @@
 x-desensitize-frontend-base: &desensitize-frontend-base
   restart: unless-stopped
   networks:
-    - vos_default
+    vos_default:
+      aliases:
+        - desensitize-frontend
   environment:
     API_BASE: /api/com.ictrek.desensitize
     APP_VERSION: "__APP_VERSION__"

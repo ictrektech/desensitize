@@ -30,7 +30,7 @@ BUILTIN_RULES = [
         "id": "api_key_openai",
         "name": "OpenAI API Key",
         "description": "匹配 sk- / pk- / rk- 开头的 OpenAI API Key",
-        "pattern": r"\b(sk|pk|rk)_(live|test)_[A-Za-z0-9]{24,}\b",
+        "pattern": r"\b(?:sk|pk|rk)[_-](?:live|test)[_-][A-Za-z0-9]{24,}\b",
         "placeholder": "[API_KEY]",
         "priority": 10,
         "enabled": True,
@@ -179,12 +179,19 @@ class RuleStore:
         self._builtin: list[dict] = []
         self._custom: list[dict] = []
         self._compiled: dict[str, re.Pattern] = {}
+        self._loaded = False
 
     def reload(self):
         """重新加载内置规则和自定义规则。"""
         self._builtin = [dict(r) for r in BUILTIN_RULES]
         self._custom = self._load_custom()
         self._compile_all()
+        self._loaded = True
+
+    def _ensure_loaded(self):
+        """保证所有请求都能使用内置规则，即使启动钩子未被执行。"""
+        if not self._loaded:
+            self.reload()
 
     def _load_custom(self) -> list[dict]:
         if not RULES_FILE.exists():
@@ -212,27 +219,33 @@ class RuleStore:
                 logger.error("规则 %s 正则编译失败: %s", rule["id"], e)
 
     def get_builtin_rules(self) -> list[dict]:
+        self._ensure_loaded()
         return [r for r in self._builtin]
 
     def get_custom_rules(self) -> list[dict]:
+        self._ensure_loaded()
         return [r for r in self._custom]
 
     def get_all_rules(self, enabled_only: bool = False) -> list[dict]:
+        self._ensure_loaded()
         rules = self._builtin + self._custom
         if enabled_only:
             rules = [r for r in rules if r.get("enabled", True)]
         return rules
 
     def get_rule(self, rule_id: str) -> Optional[dict]:
+        self._ensure_loaded()
         for r in self._builtin + self._custom:
             if r["id"] == rule_id:
                 return r
         return None
 
     def get_compiled(self, rule_id: str) -> Optional[re.Pattern]:
+        self._ensure_loaded()
         return self._compiled.get(rule_id)
 
     def add_custom_rule(self, rule: dict) -> dict:
+        self._ensure_loaded()
         rule_id = rule.get("id") or self._gen_id(rule["name"])
         while self.get_rule(rule_id) is not None:
             rule_id = self._gen_id(rule["name"], suffix=True)
@@ -248,6 +261,7 @@ class RuleStore:
         return rule
 
     def update_custom_rule(self, rule_id: str, updates: dict) -> Optional[dict]:
+        self._ensure_loaded()
         for i, r in enumerate(self._custom):
             if r["id"] == rule_id:
                 r.update(updates)
@@ -261,6 +275,7 @@ class RuleStore:
         return None
 
     def delete_custom_rule(self, rule_id: str) -> bool:
+        self._ensure_loaded()
         before = len(self._custom)
         self._custom = [r for r in self._custom if r["id"] != rule_id]
         if len(self._custom) < before:

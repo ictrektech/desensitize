@@ -1,0 +1,41 @@
+id: com.ictrek.desensitize
+name:
+  zh-CN: 数据脱敏服务
+  en: Desensitize Service
+description:
+  zh-CN: 基于正则规则的敏感信息识别与脱敏 HTTP API，供 WeKnora、agent-room 等应用在调用云模型前统一脱敏。
+  en: Regex-based sensitive information detection and desensitization HTTP API service.
+version: __APP_VERSION__
+author: ictrek
+category: [ai]
+arch: [amd64, arm64]
+
+frontend:
+  enabled: true
+  basePath: /app/com.ictrek.desensitize
+
+platform:
+  version: ">=3.0.0"
+
+profiles:
+  - name: amd
+    title:
+      zh-CN: AMD64
+      en: AMD64
+    description:
+      zh-CN: x86_64 / AMD64 平台。
+      en: x86_64 / AMD64 platform.
+    conflicts: [arm]
+  - name: arm
+    title:
+      zh-CN: ARM64
+      en: ARM64
+    description:
+      zh-CN: ARM64 平台。
+      en: ARM64 platform.
+    conflicts: [amd]
+
+storage:
+  directories:
+    - path: data
+      mode: "0755"

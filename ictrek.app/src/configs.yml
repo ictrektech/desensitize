@@ -1,0 +1,22 @@
+configs:
+  - name: DESENSITIZE_HOST_PORT
+    type: integer
+    title:
+      zh-CN: 宿主机端口
+      en: Host Port
+    description:
+      zh-CN: 脱敏服务后端 API 映射到宿主机的调试端口。
+      en: Host debug port for the desensitize backend API.
+    default: 35010
+    minimum: 1024
+    maximum: 65535
+
+  - name: DESENSITIZE_DATA_PATH
+    type: path
+    title:
+      zh-CN: 数据目录
+      en: Data Path
+    description:
+      zh-CN: 脱敏服务持久化数据目录（存储自定义规则等）。
+      en: Persistent data directory for desensitize service (custom rules, etc.).
+    default: /data/vos_workspace/desensitize

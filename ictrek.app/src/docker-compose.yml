@@ -1,0 +1,85 @@
+x-desensitize-frontend-base: &desensitize-frontend-base
+  restart: unless-stopped
+  networks:
+    - vos_default
+  environment:
+    API_BASE: /api/com.ictrek.desensitize
+    APP_VERSION: "__APP_VERSION__"
+  labels:
+    - "traefik.enable=true"
+    - "traefik.docker.network=vos_default"
+    - "traefik.http.routers.desensitize-top-open.rule=PathPrefix(`/app/com.ictrek.desensitize`) && HeadersRegexp(`Sec-Fetch-Dest`, `document`)"
+    - "traefik.http.routers.desensitize-top-open.priority=1000"
+    - "traefik.http.routers.desensitize-top-open.service=desensitize-web"
+    - "traefik.http.routers.desensitize-top-open.middlewares=desensitize-top-open-redirect"
+    - "traefik.http.middlewares.desensitize-top-open-redirect.redirectregex.regex=^(https?://[^/]+)/app/com\\.ictrek\\.desensitize/?(?:\\?.*)?$"
+    - "traefik.http.middlewares.desensitize-top-open-redirect.redirectregex.replacement=$${1}/#/app/com.ictrek.desensitize/com-ictrek-desensitize/desensitize"
+    - "traefik.http.middlewares.desensitize-top-open-redirect.redirectregex.permanent=false"
+    - "traefik.http.routers.desensitize-web.rule=PathPrefix(`/app/com.ictrek.desensitize`)"
+    - "traefik.http.routers.desensitize-web.service=desensitize-web"
+    - "traefik.http.routers.desensitize-web.middlewares=desensitize-web-slash,desensitize-web-strip"
+    - "traefik.http.middlewares.desensitize-web-slash.redirectregex.regex=^(.*)/app/com\\.ictrek\\.desensitize$"
+    - "traefik.http.middlewares.desensitize-web-slash.redirectregex.replacement=$${1}/app/com.ictrek.desensitize/"
+    - "traefik.http.middlewares.desensitize-web-slash.redirectregex.permanent=true"
+    - "traefik.http.middlewares.desensitize-web-strip.stripprefix.prefixes=/app/com.ictrek.desensitize"
+    - "traefik.http.services.desensitize-web.loadbalancer.server.port=80"
+
+x-desensitize-backend-base: &desensitize-backend-base
+  restart: unless-stopped
+  networks:
+    vos_default:
+      aliases:
+        - desensitize-backend
+  environment:
+    DESENSITIZE_DATA_DIR: /data
+  volumes:
+    - ${DESENSITIZE_DATA_PATH:-/data/vos_workspace/desensitize}:/data
+  ports:
+    - "${DESENSITIZE_HOST_PORT:-35010}:5000"
+  labels:
+    - "traefik.enable=true"
+    - "traefik.docker.network=vos_default"
+    - "traefik.http.routers.desensitize-api.rule=PathPrefix(`/api/com.ictrek.desensitize`)"
+    - "traefik.http.routers.desensitize-api.service=desensitize-api"
+    - "traefik.http.routers.desensitize-api.middlewares=desensitize-api-strip"
+    - "traefik.http.middlewares.desensitize-api-strip.stripprefix.prefixes=/api/com.ictrek.desensitize"
+    - "traefik.http.services.desensitize-api.loadbalancer.server.port=5000"
+  healthcheck:
+    test: ["CMD-SHELL", "wget --no-verbose --tries=1 -qO- http://127.0.0.1:5000/health > /dev/null 2>&1 || exit 1"]
+    interval: 30s
+    timeout: 10s
+    start_period: 10s
+    retries: 3
+
+services:
+  desensitize-frontend-amd:
+    <<: *desensitize-frontend-base
+    profiles: ["amd"]
+    image: ${DESENSITIZE_FRONTEND_AMD_IMAGE}
+    pull_policy: always
+    depends_on:
+      - desensitize-backend-amd
+
+  desensitize-backend-amd:
+    <<: *desensitize-backend-base
+    profiles: ["amd"]
+    image: ${DESENSITIZE_BACKEND_AMD_IMAGE}
+    pull_policy: always
+
+  desensitize-frontend-arm:
+    <<: *desensitize-frontend-base
+    profiles: ["arm"]
+    image: ${DESENSITIZE_FRONTEND_ARM_IMAGE}
+    pull_policy: always
+    depends_on:
+      - desensitize-backend-arm
+
+  desensitize-backend-arm:
+    <<: *desensitize-backend-base
+    profiles: ["arm"]
+    image: ${DESENSITIZE_BACKEND_ARM_IMAGE}
+    pull_policy: always
+
+networks:
+  vos_default:
+    external: true

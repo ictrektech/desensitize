@@ -1,0 +1,71 @@
+name: VOS Pull Package Release
+
+on:
+  push:
+    tags:
+      - "vos-desensitize-v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Fetch all release tags
+        run: git fetch --force --tags origin
+
+      - name: Write Feishu component credentials
+        run: |
+          cat > "$HOME/.feishu.components.json" <<EOF
+          {
+            "feishu_app_id": "${{ secrets.FEISHU_APP_ID }}",
+            "feishu_app_secret": "${{ secrets.FEISHU_APP_SECRET }}"
+          }
+          EOF
+
+      - name: Build pull-mode package
+        env:
+          FEISHU_SPREADSHEET_TOKEN: ${{ secrets.FEISHU_SPREADSHEET_TOKEN }}
+        run: |
+          set -euo pipefail
+          VERSION="${GITHUB_REF_NAME#vos-desensitize-v}"
+          PACKAGE_VERSION="$VERSION" ./ictrek.app/scripts/package.sh
+          test -f "ictrek.app/dist/desensitize_${VERSION}_pull.tar"
+
+      - name: Create release notes
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG_PREFIX: vos-desensitize-v
+        run: |
+          set -euo pipefail
+          VERSION="${GITHUB_REF_NAME#vos-desensitize-v}"
+          CURRENT="${GITHUB_REF_NAME}"
+          PUBLIC_TAG="v${VERSION}"
+          export PUBLIC_TAG
+          PREVIOUS="$(gh release list --limit 100 --json tagName,publishedAt --jq '[.[] | select(.tagName != env.PUBLIC_TAG) | select((.tagName | startswith("v")) or (.tagName | startswith(env.TAG_PREFIX)))] | sort_by(.publishedAt) | reverse | .[0].tagName // ""')"
+          {
+            echo "Pull-mode VOS app package for com.ictrek.desensitize."
+            echo
+            if [[ -n "$PREVIOUS" ]]; then
+              echo "Changes since ${PREVIOUS}:"
+              git log --no-merges --pretty='- %s (%h)' "${PREVIOUS}..${CURRENT}"
+            else
+              echo "Initial VOS package release."
+              git log --no-merges --pretty='- %s (%h)' -20 "${CURRENT}"
+            fi
+          } > release-notes.md
+
+      - name: Upload release asset
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION="${GITHUB_REF_NAME#vos-desensitize-v}"
+          gh release create "${GITHUB_REF_NAME}" \
+            --title "desensitize ${VERSION}" \
+            --notes-file release-notes.md \
+            "ictrek.app/dist/desensitize_${VERSION}_pull.tar"

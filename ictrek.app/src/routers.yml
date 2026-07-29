@@ -1,0 +1,20 @@
+routers:
+  - id: com-ictrek-desensitize
+    kind: group
+    title:
+      zh-CN: 数据脱敏
+      en: Desensitize
+    icon: lucide:shield-check
+    order: 210
+    children:
+      - id: desensitize
+        kind: page
+        title:
+          zh-CN: 脱敏管理
+          en: Desensitize
+        icon: lucide:shield-check
+        iframe-src: /app/com.ictrek.desensitize/
+        order: 40
+        keep-alive: true
+        entry-point: true
+        embed: true

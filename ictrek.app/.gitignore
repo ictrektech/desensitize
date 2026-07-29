@@ -1,0 +1,7 @@
+dist/
+*.tar
+*.tar.gz
+staging/
+package-root/
+.feishu*.json
+.lock

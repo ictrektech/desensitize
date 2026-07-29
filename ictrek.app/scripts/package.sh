@@ -245,6 +245,38 @@ render_template() {
   echo "$content" > "$dst"
 }
 
+# 渲染 docker-compose.yml：先替换 __APP_VERSION__，再把 ${VAR} 形式的镜像
+# 变量替换为 .env 中的值（仅对 *_IMAGE 变量做替换，保留 ${VAR:-default} 等其他语法）。
+render_compose_file() {
+  local src="$1"
+  local dst="$2"
+  local env_file="$3"
+  python3 - "$src" "$dst" "$APP_VERSION" "$env_file" <<'PYRENDER'
+import re
+import sys
+from pathlib import Path
+
+src, dst, version, env_path = Path(sys.argv[1]), Path(sys.argv[2]), sys.argv[3], Path(sys.argv[4])
+env = {}
+for line in env_path.read_text(encoding="utf-8").splitlines():
+    if not line or line.startswith("#") or "=" not in line:
+        continue
+    key, value = line.split("=", 1)
+    env[key] = value
+
+text = src.read_text(encoding="utf-8").replace("__APP_VERSION__", version)
+
+def replace_image_var(match):
+    key = match.group(1)
+    if key.endswith("_IMAGE") and key in env:
+        return env[key]
+    return match.group(0)
+
+text = re.sub(r"\$\{([A-Z0-9_]+)(?::-[^}]*)?\}", replace_image_var, text)
+dst.write_text(text, encoding="utf-8")
+PYRENDER
+}
+
 build_env() {
   local env_file="$STAGE_DIR/.env"
   : > "$env_file"
@@ -339,17 +371,17 @@ main() {
   rm -rf "$STAGE_DIR" "$PACKAGE_ROOT"
   mkdir -p "$STAGE_DIR"
 
-  # Render templates
+  # Build .env with image names from Feishu
+  log "Fetching image tags from Feishu..."
+  build_env
+
+  # Render templates (compose 文件需要先有 .env 才能替换 ${..._IMAGE} 变量)
   render_template "$SRC_DIR/manifest.yml" "$STAGE_DIR/manifest.yml"
-  render_template "$SRC_DIR/docker-compose.yml" "$STAGE_DIR/docker-compose.yml"
+  render_compose_file "$SRC_DIR/docker-compose.yml" "$STAGE_DIR/docker-compose.yml" "$STAGE_DIR/.env"
   render_template "$SRC_DIR/configs.yml" "$STAGE_DIR/configs.yml"
   render_template "$SRC_DIR/routers.yml" "$STAGE_DIR/routers.yml"
   render_template "$SRC_DIR/README.zh-CN.md" "$STAGE_DIR/README.zh-CN.md"
   render_template "$SRC_DIR/README.en.md" "$STAGE_DIR/README.en.md"
-
-  # Build .env with image names from Feishu
-  log "Fetching image tags from Feishu..."
-  build_env
 
   # Create app.tar.gz
   local tarball="${DIST_DIR}/${APP_NAME}_${APP_VERSION}_pull.tar"

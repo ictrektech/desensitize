@@ -37,8 +37,8 @@ PROFILES=(
   "thor-spark|thor_spark"
 )
 COMPONENTS=(
-  "DESENSITIZE_FRONTEND|desensitize_frontend|swr.cn-southwest-2.myhuaweicloud.com/ictrek/desensitize-frontend"
-  "DESENSITIZE_BACKEND|desensitize_backend|swr.cn-southwest-2.myhuaweicloud.com/ictrek/desensitize-backend"
+  "DESENSITIZE_FRONTEND|desensitize-frontend|swr.cn-southwest-2.myhuaweicloud.com/ictrek/desensitize-frontend"
+  "DESENSITIZE_BACKEND|desensitize-backend|swr.cn-southwest-2.myhuaweicloud.com/ictrek/desensitize-backend"
 )
 
 log() { echo "[INFO] $*"; }

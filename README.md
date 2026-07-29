@@ -44,6 +44,8 @@ apps/desensitize/
 │       └── README.en.md
 ├── .github/workflows/
 │   └── vos-release.yml     # CI 流水线
+├── docs/
+│   └── desensitize-service-comparison.md # 架构与接入方案
 ├── requirements.txt
 └── README.md               # 本文件
 ```
@@ -116,6 +118,9 @@ ictrek.app/scripts/update_version.sh patch
 
 脚本只推送 `vos-desensitize-v<version>` 触发 tag。GitHub Actions 打包、创建
 `v<version>` GitHub Release，并将安装包发布到已配置的 VOS App Store。
+
+架构选型、调用方接入和后续语义脱敏演进见
+[docs/desensitize-service-comparison.md](docs/desensitize-service-comparison.md)。
 
 完整发布顺序：先在 tc232/tc81 构建并确认两个平台镜像已写入全部对应 sheet；再提交
 代码，运行 `update_version.sh patch`。CI 只负责从每个 profile 自己的 sheet 读取 tag、

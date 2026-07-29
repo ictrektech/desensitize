@@ -71,6 +71,7 @@ PUSH_IMAGES=1
 UPDATE_FEISHU=1
 DRY_RUN=0
 SKIP_BUILD=0
+BUILD_ENGINE="${DESENSITIZE_BUILD_ENGINE:-auto}"
 
 TARGET_SHEETS=()
 
@@ -80,6 +81,34 @@ die() { err "$*"; exit 1; }
 
 require_cmd() {
   command -v "$1" >/dev/null 2>&1 || die "missing command: $1"
+}
+
+configure_build_engine() {
+  case "$BUILD_ENGINE" in
+    auto)
+      if docker buildx version >/dev/null 2>&1; then
+        BUILD_ENGINE="buildx"
+      else
+        BUILD_ENGINE="docker"
+      fi
+      ;;
+    buildx)
+      docker buildx version >/dev/null 2>&1 || die "DESENSITIZE_BUILD_ENGINE=buildx but docker buildx is unavailable"
+      ;;
+    docker)
+      ;;
+    *)
+      die "Unsupported DESENSITIZE_BUILD_ENGINE=${BUILD_ENGINE}; expected auto, buildx, or docker"
+      ;;
+  esac
+}
+
+docker_build_image() {
+  if [[ "$BUILD_ENGINE" == "buildx" ]]; then
+    docker buildx build --load --provenance=false --sbom=false "$@"
+  else
+    docker build "$@"
+  fi
 }
 
 usage() {
@@ -389,11 +418,11 @@ build_and_push() {
   log "Building ${component} (${sheet}, tag=${tag}): ${image_name} via ${dockerfile}"
 
   if [[ "$DRY_RUN" == "1" ]]; then
-    log "[DRY] Would build: docker build -f ${dockerfile} -t ${image_name} ."
+    log "[DRY] Would build: docker buildx build --load -f ${dockerfile} -t ${image_name} ."
     return 0
   fi
 
-  docker build \
+  docker_build_image \
     -f "$dockerfile" \
     -t "$image_name" \
     .
@@ -487,6 +516,9 @@ log "Push: ${PUSH_IMAGES}  Feishu: ${UPDATE_FEISHU}  DryRun: ${DRY_RUN}"
 # =============================================================================
 
 if [[ "$SKIP_BUILD" != "1" ]]; then
+  configure_build_engine
+  log "BUILD_ENGINE=${BUILD_ENGINE}"
+
   for sheet in "${TARGET_SHEETS[@]}"; do
     tag_prefix="$(sheet_to_tag_prefix "$sheet")"
     if [[ -z "$tag_prefix" ]]; then

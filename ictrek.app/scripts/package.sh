@@ -30,7 +30,11 @@ LOCK_DIR="${DIST_DIR}/.package.lock"
 
 PROFILES=(
   "amd|AMD_with_cuda"
+  "amd-without-cuda|AMD_with_cuda"
   "arm|ARM_with_cuda"
+  "arm-without-cuda|ARM_without_cuda"
+  "l4t"
+  "thor-spark|thor_spark"
 )
 COMPONENTS=(
   "DESENSITIZE_FRONTEND|desensitize_frontend|swr.cn-southwest-2.myhuaweicloud.com/ictrek/desensitize-frontend"

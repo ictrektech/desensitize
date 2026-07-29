@@ -24,14 +24,16 @@ x-desensitize-frontend-base: &desensitize-frontend-base
     - "traefik.http.middlewares.desensitize-web-strip.stripprefix.prefixes=/app/com.ictrek.desensitize"
     - "traefik.http.services.desensitize-web.loadbalancer.server.port=80"
 
+x-desensitize-backend-env: &desensitize-backend-env
+  DESENSITIZE_DATA_DIR: /data
+
 x-desensitize-backend-base: &desensitize-backend-base
   restart: unless-stopped
   networks:
     vos_default:
       aliases:
         - desensitize-backend
-  environment:
-    DESENSITIZE_DATA_DIR: /data
+  environment: *desensitize-backend-env
   volumes:
     - ${DESENSITIZE_DATA_PATH:-/data/vos_workspace/desensitize}:/data
   ports:
@@ -51,7 +53,17 @@ x-desensitize-backend-base: &desensitize-backend-base
     start_period: 10s
     retries: 3
 
+# ── GPU backend base (for future PyTorch NER support) ──
+x-desensitize-backend-gpu-base: &desensitize-backend-gpu-base
+  <<: *desensitize-backend-base
+  runtime: nvidia
+  environment:
+    <<: *desensitize-backend-base-env
+    NVIDIA_VISIBLE_DEVICES: ${NVIDIA_VISIBLE_DEVICES:-all}
+    NVIDIA_DRIVER_CAPABILITIES: ${NVIDIA_DRIVER_CAPABILITIES:-compute,utility}
+
 services:
+  # ── amd (AMD64 CUDA) ──
   desensitize-frontend-amd:
     <<: *desensitize-frontend-base
     profiles: ["amd"]
@@ -61,11 +73,27 @@ services:
       - desensitize-backend-amd
 
   desensitize-backend-amd:
-    <<: *desensitize-backend-base
+    <<: *desensitize-backend-gpu-base
     profiles: ["amd"]
     image: ${DESENSITIZE_BACKEND_AMD_IMAGE}
     pull_policy: always
 
+  # ── amd-without-cuda ──
+  desensitize-frontend-amd-without-cuda:
+    <<: *desensitize-frontend-base
+    profiles: ["amd-without-cuda"]
+    image: ${DESENSITIZE_FRONTEND_AMD_WITHOUT_CUDA_IMAGE}
+    pull_policy: always
+    depends_on:
+      - desensitize-backend-amd-without-cuda
+
+  desensitize-backend-amd-without-cuda:
+    <<: *desensitize-backend-base
+    profiles: ["amd-without-cuda"]
+    image: ${DESENSITIZE_BACKEND_AMD_WITHOUT_CUDA_IMAGE}
+    pull_policy: always
+
+  # ── arm (ARM CUDA) ──
   desensitize-frontend-arm:
     <<: *desensitize-frontend-base
     profiles: ["arm"]
@@ -75,9 +103,54 @@ services:
       - desensitize-backend-arm
 
   desensitize-backend-arm:
-    <<: *desensitize-backend-base
+    <<: *desensitize-backend-gpu-base
     profiles: ["arm"]
     image: ${DESENSITIZE_BACKEND_ARM_IMAGE}
+    pull_policy: always
+
+  # ── arm-without-cuda ──
+  desensitize-frontend-arm-without-cuda:
+    <<: *desensitize-frontend-base
+    profiles: ["arm-without-cuda"]
+    image: ${DESENSITIZE_FRONTEND_ARM_WITHOUT_CUDA_IMAGE}
+    pull_policy: always
+    depends_on:
+      - desensitize-backend-arm-without-cuda
+
+  desensitize-backend-arm-without-cuda:
+    <<: *desensitize-backend-base
+    profiles: ["arm-without-cuda"]
+    image: ${DESENSITIZE_BACKEND_ARM_WITHOUT_CUDA_IMAGE}
+    pull_policy: always
+
+  # ── l4t (Jetson / L4T) ──
+  desensitize-frontend-l4t:
+    <<: *desensitize-frontend-base
+    profiles: ["l4t"]
+    image: ${DESENSITIZE_FRONTEND_L4T_IMAGE}
+    pull_policy: always
+    depends_on:
+      - desensitize-backend-l4t
+
+  desensitize-backend-l4t:
+    <<: *desensitize-backend-gpu-base
+    profiles: ["l4t"]
+    image: ${DESENSITIZE_BACKEND_L4T_IMAGE}
+    pull_policy: always
+
+  # ── thor-spark ──
+  desensitize-frontend-thor-spark:
+    <<: *desensitize-frontend-base
+    profiles: ["thor-spark"]
+    image: ${DESENSITIZE_FRONTEND_THOR_SPARK_IMAGE}
+    pull_policy: always
+    depends_on:
+      - desensitize-backend-thor-spark
+
+  desensitize-backend-thor-spark:
+    <<: *desensitize-backend-gpu-base
+    profiles: ["thor-spark"]
+    image: ${DESENSITIZE_BACKEND_THOR_SPARK_IMAGE}
     pull_policy: always
 
 networks:

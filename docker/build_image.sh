@@ -132,18 +132,40 @@ main() {
 
   parse_args "$@"
 
+  # 当前纯正则阶段，所有 profile 共用同一个镜像
+  # amd 和 amd-without-cuda 用同一个 AMD 镜像
+  # arm 和 arm-without-cuda 用同一个 ARM 镜像
+  # l4t 和 thor-spark 用同一个 ARM 镜像（未来 NER 阶段再分化）
+  # 这样飞书表每个 sheet 都能找到对应的 tag
+
   if [[ -z "$COMPONENT" || "$COMPONENT" == "backend" ]]; then
     build_and_push_backend "amd"
     build_and_push_backend "arm"
+
+    # AMD_with_cuda sheet: amd profile
     write_feishu_tag "AMD_with_cuda" "desensitize_backend" "amd_${TAG}"
+    # AMD_with_cuda sheet: amd-without-cuda profile (same image, no runtime: nvidia)
+    write_feishu_tag "AMD_with_cuda" "desensitize_backend_amd_without_cuda" "amd_${TAG}"
+    # ARM_with_cuda sheet: arm profile
     write_feishu_tag "ARM_with_cuda" "desensitize_backend" "arm_${TAG}"
+    # ARM_without_cuda sheet: arm-without-cuda profile
+    write_feishu_tag "ARM_without_cuda" "desensitize_backend" "arm_${TAG}"
+    # l4t sheet
+    write_feishu_tag "l4t" "desensitize_backend" "arm_${TAG}"
+    # thor_spark sheet
+    write_feishu_tag "thor_spark" "desensitize_backend" "arm_${TAG}"
   fi
 
   if [[ -z "$COMPONENT" || "$COMPONENT" == "frontend" ]]; then
     build_and_push_frontend "amd"
     build_and_push_frontend "arm"
+
     write_feishu_tag "AMD_with_cuda" "desensitize_frontend" "amd_${TAG}"
+    write_feishu_tag "AMD_with_cuda" "desensitize_frontend_amd_without_cuda" "amd_${TAG}"
     write_feishu_tag "ARM_with_cuda" "desensitize_frontend" "arm_${TAG}"
+    write_feishu_tag "ARM_without_cuda" "desensitize_frontend" "arm_${TAG}"
+    write_feishu_tag "l4t" "desensitize_frontend" "arm_${TAG}"
+    write_feishu_tag "thor_spark" "desensitize_frontend" "arm_${TAG}"
   fi
 
   log "Done. Images tagged with ${TAG}"

@@ -20,20 +20,52 @@ platform:
 profiles:
   - name: amd
     title:
-      zh-CN: AMD64
-      en: AMD64
+      zh-CN: AMD64 CUDA
+      en: AMD64 CUDA
     description:
-      zh-CN: x86_64 / AMD64 平台。
-      en: x86_64 / AMD64 platform.
-    conflicts: [arm]
+      zh-CN: AMD64 平台，声明 nvidia runtime，未来可加载 PyTorch NER 模型。
+      en: AMD64 platform with nvidia runtime, can load PyTorch NER models in the future.
+    conflicts: [amd-without-cuda, arm, arm-without-cuda, l4t, thor-spark]
+  - name: amd-without-cuda
+    title:
+      zh-CN: AMD64 无 CUDA
+      en: AMD64 without CUDA
+    description:
+      zh-CN: AMD64 平台，不声明 nvidia runtime，适用于无显卡或未配置 NVIDIA runtime 的主机。
+      en: AMD64 platform without nvidia runtime, for hosts without GPUs or NVIDIA runtime.
+    conflicts: [amd, arm, arm-without-cuda, l4t, thor-spark]
   - name: arm
     title:
-      zh-CN: ARM64
-      en: ARM64
+      zh-CN: ARM CUDA
+      en: ARM CUDA
     description:
-      zh-CN: ARM64 平台。
-      en: ARM64 platform.
-    conflicts: [amd]
+      zh-CN: ARM64 平台，声明 nvidia runtime，未来可加载 PyTorch NER 模型。
+      en: ARM64 platform with nvidia runtime, can load PyTorch NER models in the future.
+    conflicts: [amd, amd-without-cuda, arm-without-cuda, l4t, thor-spark]
+  - name: arm-without-cuda
+    title:
+      zh-CN: ARM 无 CUDA
+      en: ARM without CUDA
+    description:
+      zh-CN: ARM64 平台，不声明 nvidia runtime，适用于无显卡 ARM 主机。
+      en: ARM64 platform without nvidia runtime, for ARM hosts without GPUs.
+    conflicts: [amd, amd-without-cuda, arm, l4t, thor-spark]
+  - name: l4t
+    title:
+      zh-CN: Jetson / L4T
+      en: Jetson / L4T
+    description:
+      zh-CN: Jetson / L4T 平台（如 tc192），未来可加载 PyTorch NER 模型。
+      en: Jetson / L4T platform (e.g. tc192), can load PyTorch NER models in the future.
+    conflicts: [amd, amd-without-cuda, arm, arm-without-cuda, thor-spark]
+  - name: thor-spark
+    title:
+      zh-CN: Thor Spark
+      en: Thor Spark
+    description:
+      zh-CN: Thor Spark 平台（如 tc81），未来可加载 PyTorch NER 模型。
+      en: Thor Spark platform (e.g. tc81), can load PyTorch NER models in the future.
+    conflicts: [amd, amd-without-cuda, arm, arm-without-cuda, l4t]
 
 storage:
   directories:

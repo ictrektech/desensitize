@@ -72,7 +72,7 @@ npm run dev
 | 构建参数 | 构建机 | 镜像 tag | 同步写入的飞书 sheet |
 | --- | --- | --- | --- |
 | `--platform amd` | `tc232` | `amd_20260729` | `AMD_with_cuda`、`AMD_with_mxn100` |
-| `--platform arm` | `tc81` | `arm_20260729` | `ARM_with_cuda`、`ARM_without_cuda`、`l4t`、`thor_spark`、`SOPHON_bm1688` |
+| `--platform arm` | `tc81` | `arm_20260729` | `ARM_with_cuda`、`ARM_without_cuda`、`l4t`、`thor_spark` |
 
 ```bash
 cd apps/desensitize
@@ -86,7 +86,8 @@ cd apps/desensitize
 
 不要使用 `--sheet` 或自定义功能后缀 tag。当前各 ARM / AMD profile 共用通用镜像；
 未来某个 profile 需要 CUDA、PyTorch 或设备专用运行时，再在构建脚本中为该 profile
-增加专用构建映射。**打包脚本不会跨 sheet 查找镜像**：`l4t` 始终从 `l4t` sheet 读，
+增加专用构建映射。SOPHON 不是当前 VOS 包支持的 profile，待专用镜像接入时单独配置。
+**打包脚本不会跨 sheet 查找镜像**：`l4t` 始终从 `l4t` sheet 读，
 `arm` 始终从 `ARM_with_cuda` sheet 读，等专用镜像出现后无需修改打包逻辑。
 
 只重建单个组件时：

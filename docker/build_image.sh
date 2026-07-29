@@ -34,7 +34,7 @@ FRONTEND_REPOSITORY="${REGISTRY}/desensitize-frontend"
 platform_sheets() {
   case "$1" in
     amd) printf '%s\n' AMD_with_cuda AMD_with_mxn100 ;;
-    arm) printf '%s\n' ARM_with_cuda ARM_without_cuda l4t thor_spark SOPHON_bm1688 ;;
+    arm) printf '%s\n' ARM_with_cuda ARM_without_cuda l4t thor_spark ;;
     *) return 1 ;;
   esac
 }
@@ -110,7 +110,7 @@ profile's own sheet.
 
 Platforms and synced sheets:
   amd: AMD_with_cuda, AMD_with_mxn100
-  arm: ARM_with_cuda, ARM_without_cuda, l4t, thor_spark, SOPHON_bm1688
+  arm: ARM_with_cuda, ARM_without_cuda, l4t, thor_spark
 
 Options:
   --platform PLATFORM      amd or arm; builds one image pair for that architecture

@@ -341,11 +341,11 @@ main() {
 
   # Render templates
   render_template "$SRC_DIR/manifest.yml" "$STAGE_DIR/manifest.yml"
-  cp "$SRC_DIR/docker-compose.yml" "$STAGE_DIR/docker-compose.yml"
-  cp "$SRC_DIR/configs.yml" "$STAGE_DIR/configs.yml"
-  cp "$SRC_DIR/routers.yml" "$STAGE_DIR/routers.yml"
-  cp "$SRC_DIR/README.zh-CN.md" "$STAGE_DIR/README.zh-CN.md"
-  cp "$SRC_DIR/README.en.md" "$STAGE_DIR/README.en.md"
+  render_template "$SRC_DIR/docker-compose.yml" "$STAGE_DIR/docker-compose.yml"
+  render_template "$SRC_DIR/configs.yml" "$STAGE_DIR/configs.yml"
+  render_template "$SRC_DIR/routers.yml" "$STAGE_DIR/routers.yml"
+  render_template "$SRC_DIR/README.zh-CN.md" "$STAGE_DIR/README.zh-CN.md"
+  render_template "$SRC_DIR/README.en.md" "$STAGE_DIR/README.en.md"
 
   # Build .env with image names from Feishu
   log "Fetching image tags from Feishu..."

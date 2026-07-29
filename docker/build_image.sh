@@ -4,19 +4,39 @@ set -euo pipefail
 # =============================================================================
 # desensitize build/push script
 # =============================================================================
-# 在构建机本地执行：构建 docker 镜像、推送到 SWR、将 tag 写入飞书发布表。
+# 在构建机本地执行：按 --sheet 指定的每个 profile/sheet 单独构建一份镜像，
+# 推送到 SWR，并将 tag 写入飞书发布表对应 sheet。
 #
-# 使用方式（在构建机上执行）：
-#   tc232:  ./docker/build_image.sh              # 构建 amd，写入 AMD_with_cuda
-#   tc192:  ./docker/build_image.sh --sheet l4t  # 构建 arm，写入 l4t
-#   tc81:   ./docker/build_image.sh              # 构建 arm，写入所有 ARM sheets
+# 与 model_hub/weknora 的区别：
+#   desensitize 有 6 个 profile（amd / amd-without-cuda / arm / arm-without-cuda
+#   / l4t / thor-spark），未来不同 profile 拉取的基镜像会因 pytorch 运行环境
+#   差异而不同，因此每次调用按 sheet 显式选择要构建/写入的 profile，
+#   每个 sheet 对应一份独立的镜像 tag，而不是共用一个 tag。
 #
-# 架构与 sheet 对应关系（参考 model_hub）：
-#   x86_64  -> amd 镜像 -> 默认写入 AMD_with_cuda
-#   aarch64 -> arm 镜像 -> 默认写入 ARM_with_cuda, ARM_without_cuda, l4t, thor_spark
+# 使用方式（在构建机上执行）:
+#   tc232:  ./docker/build_image.sh --sheet AMD_with_cuda
+#   tc232:  ./docker/build_image.sh --sheet AMD_with_mxn100
+#   tc192:  ./docker/build_image.sh --sheet l4t
+#   tc81:   ./docker/build_image.sh --sheet ARM_with_cuda
+#   tc81:   ./docker/build_image.sh --sheet ARM_without_cuda
+#   tc81:   ./docker/build_image.sh --sheet thor_spark
+#   一次性多个 sheet:
+#           ./docker/build_image.sh --sheet ARM_with_cuda --sheet ARM_without_cuda \
+#                                   --sheet thor_spark
 #
-# 说明：当前纯正则阶段，arm / l4t / thor-spark 共用同一个 arm 镜像（Dockerfile 相同），
-#       差别仅在于 docker-compose profile 是否声明 runtime: nvidia。
+# profile -> Dockerfile 映射（每个 profile 可独立指定 Dockerfile，
+# 缺失则回退到默认 docker/Dockerfile）:
+#   AMD_with_cuda       -> docker/Dockerfile.amd          (或 docker/Dockerfile)
+#   AMD_with_mxn100     -> docker/Dockerfile.amd_mxn100
+#   ARM_with_cuda       -> docker/Dockerfile.arm
+#   ARM_without_cuda    -> docker/Dockerfile.arm
+#   l4t                 -> docker/Dockerfile.l4t
+#   thor_spark          -> docker/Dockerfile.thor_spark
+#   SOPHON_bm1688       -> docker/Dockerfile.sophon
+#
+# 镜像 tag 格式：<sheet_to_tag>_<YYYYMMDD>，例如 l4t_20260729、thor_spark_20260729。
+# 飞书写入：每个 sheet 一行当天日期，<sheet>!desensitize_backend 列写后端 tag，
+#           <sheet>!desensitize_frontend 列写前端 tag。
 # =============================================================================
 
 cd "$(dirname "$0")/.."
@@ -30,8 +50,38 @@ FRONTEND_REPOSITORY="${REGISTRY}/desensitize-frontend"
 BACKEND_COMPONENT_NAME="desensitize_backend"
 FRONTEND_COMPONENT_NAME="desensitize_frontend"
 
-AMD_SHEETS=("AMD_with_cuda")
-ARM_SHEETS=("ARM_with_cuda" "ARM_without_cuda" "l4t" "thor_spark")
+# sheet -> 镜像 tag 前缀（注意 ARM_with_cuda / ARM_without_cuda 共用同一份 arm 镜像）
+sheet_to_tag_prefix() {
+  case "$1" in
+    AMD_with_cuda)    echo "amd" ;;
+    AMD_with_mxn100)  echo "amd_mxn100" ;;
+    ARM_with_cuda)    echo "arm" ;;
+    ARM_without_cuda) echo "arm" ;;
+    l4t)              echo "l4t" ;;
+    thor_spark)       echo "thor_spark" ;;
+    SOPHON_bm1688)    echo "sophon" ;;
+    *) return 1 ;;
+  esac
+}
+
+# sheet -> 期望的 backend Dockerfile；缺失则回退到默认 docker/Dockerfile
+sheet_to_dockerfile() {
+  case "$1" in
+    AMD_with_cuda)    echo "docker/Dockerfile.amd" ;;
+    AMD_with_mxn100)  echo "docker/Dockerfile.amd_mxn100" ;;
+    ARM_with_cuda)    echo "docker/Dockerfile.arm" ;;
+    ARM_without_cuda) echo "docker/Dockerfile.arm" ;;
+    l4t)              echo "docker/Dockerfile.l4t" ;;
+    thor_spark)       echo "docker/Dockerfile.thor_spark" ;;
+    SOPHON_bm1688)    echo "docker/Dockerfile.sophon" ;;
+    *) return 1 ;;
+  esac
+}
+
+DEFAULT_BACKEND_DOCKERFILE="docker/Dockerfile"
+DEFAULT_FRONTEND_DOCKERFILE="frontend/Dockerfile"
+
+VALID_SHEETS=("AMD_with_cuda" "AMD_with_mxn100" "ARM_with_cuda" "ARM_without_cuda" "l4t" "thor_spark" "SOPHON_bm1688")
 
 TODAY="$(date +%Y%m%d)"
 TAG_OVERRIDE=""
@@ -43,7 +93,6 @@ UPDATE_FEISHU=1
 DRY_RUN=0
 SKIP_BUILD=0
 
-TARGET=""
 TARGET_SHEETS=()
 
 log() { echo "[INFO] $*"; }
@@ -56,25 +105,35 @@ require_cmd() {
 
 usage() {
   cat <<'EOF'
-Usage: ./docker/build_image.sh [options]
+Usage: ./docker/build_image.sh --sheet SHEET [--sheet SHEET ...] [options]
 
-Build desensitize images locally and record tags in Feishu.
+Build desensitize images for the specified profile sheets and record tags in Feishu.
+
+Profiles (must match at least one --sheet):
+  AMD:      AMD_with_cuda, AMD_with_mxn100
+  ARM:      ARM_with_cuda, ARM_without_cuda, l4t, thor_spark, SOPHON_bm1688
 
 Options:
+  --sheet SHEET            Feishu sheet / profile to build (can be repeated)
   --component backend      Build only backend image
   --component frontend     Build only frontend image
   --no-push                Build locally without docker push
   --no-feishu              Do not update Feishu after push
   --feishu-only            Do not build or push; only write tags to Feishu
   --dry-run                Print plan without building, pushing, or writing Feishu
-  --target TARGET          Override detected target: amd or arm
-  --sheet SHEET            Override Feishu sheets to write (can be repeated)
-  --tag TAG                Override the generated tag (default: <arch>_<YYYYMMDD>)
+  --tag TAG                Override the generated tag (default: <sheet>_<YYYYMMDD>)
   -h, --help               Show this help
 
 Environment:
   FEISHU_CONFIG_FILE       Defaults to ~/.feishu.json
   REGISTRY                 SWR registry prefix
+
+Notes:
+  - Build host must match the profile architecture:
+      AMD_with_cuda / AMD_with_mxn100 -> x86_64 host (e.g. tc232)
+      ARM_with_cuda / ARM_without_cuda / l4t / thor_spark / SOPHON_bm1688 -> aarch64 host (e.g. tc81, tc192)
+  - The script intentionally does not auto-detect architecture because each
+    profile may pull a different base image (pytorch runtime differs).
 EOF
 }
 
@@ -234,7 +293,6 @@ def cell_text(v):
 
 max_len = max(len(row), len(repo_row))
 
-# 先在已有头部范围内查找
 for i in range(2, max_len + 1):
     header = cell_text(row[i - 1]) if i <= len(row) else ""
     repo = cell_text(repo_row[i - 1]) if i <= len(repo_row) else ""
@@ -242,7 +300,6 @@ for i in range(2, max_len + 1):
         print(f"FOUND\t{i}")
         raise SystemExit(0)
 
-# 未找到则在紧凑组件块（从 B 列开始）后追加
 for i in range(2, max_len + 2):
     header = cell_text(row[i - 1]) if i <= len(row) else ""
     repo = cell_text(repo_row[i - 1]) if i <= len(repo_row) else ""
@@ -374,19 +431,41 @@ update_feishu_cell() {
 # Build & push
 # =============================================================================
 
+resolve_dockerfile() {
+  local component="$1"   # backend | frontend
+  local sheet="$2"
+  local preferred
+
+  if [[ "$component" == "frontend" ]]; then
+    # frontend 暂不按 sheet 拆分，复用同一个 Dockerfile
+    echo "$DEFAULT_FRONTEND_DOCKERFILE"
+    return 0
+  fi
+
+  preferred="$(sheet_to_dockerfile "$sheet" 2>/dev/null || true)"
+  if [[ -n "$preferred" && -f "$preferred" ]]; then
+    echo "$preferred"
+    return 0
+  fi
+
+  echo "$DEFAULT_BACKEND_DOCKERFILE"
+}
+
 build_and_push() {
-  local arch_tag="$1"
+  local sheet="$1"
   local component="$2"
   local dockerfile="$3"
+  local tag_prefix="$4"
+  local tag="${tag_prefix}_${TAG_OVERRIDE:-$TODAY}"
   local image_name
 
   case "$component" in
-    backend)  image_name="${BACKEND_REPOSITORY}:${arch_tag}_${TAG_OVERRIDE:-$TODAY}" ;;
-    frontend) image_name="${FRONTEND_REPOSITORY}:${arch_tag}_${TAG_OVERRIDE:-$TODAY}" ;;
+    backend)  image_name="${BACKEND_REPOSITORY}:${tag}" ;;
+    frontend) image_name="${FRONTEND_REPOSITORY}:${tag}" ;;
     *) die "unknown component: $component" ;;
   esac
 
-  log "Building ${component} (${arch_tag}): ${image_name}"
+  log "Building ${component} (${sheet}, tag=${tag}): ${image_name} via ${dockerfile}"
 
   if [[ "$DRY_RUN" == "1" ]]; then
     log "[DRY] Would build: docker build -f ${dockerfile} -t ${image_name} ."
@@ -410,6 +489,10 @@ build_and_push() {
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
+    --sheet)
+      TARGET_SHEETS+=("$2")
+      shift 2
+      ;;
     --component)
       case "$2" in
         backend)  BUILD_BACKEND=1; BUILD_FRONTEND=0 ;;
@@ -438,14 +521,6 @@ while [[ $# -gt 0 ]]; do
       UPDATE_FEISHU=0
       shift
       ;;
-    --target)
-      TARGET="$2"
-      shift 2
-      ;;
-    --sheet)
-      TARGET_SHEETS+=("$2")
-      shift 2
-      ;;
     --tag)
       TAG_OVERRIDE="$2"
       shift 2
@@ -469,78 +544,43 @@ if [[ "$UPDATE_FEISHU" == "1" ]]; then
   require_cmd curl
 fi
 
-# =============================================================================
-# Architecture detection (参考 weknora)
-# =============================================================================
-
-ARCH="$(uname -m)"
-case "$ARCH" in
-  x86_64|amd64)
-    ARCH_TAG="amd"
-    DEFAULT_SHEETS=("${AMD_SHEETS[@]}")
-    ;;
-  aarch64|arm64)
-    ARCH_TAG="arm"
-    DEFAULT_SHEETS=("${ARM_SHEETS[@]}")
-    ;;
-  *)
-    die "unsupported architecture: ${ARCH}"
-    ;;
-esac
-
-if [[ -n "$TARGET" ]]; then
-  case "$TARGET" in
-    amd)
-      ARCH_TAG="amd"
-      ;;
-    arm)
-      ARCH_TAG="arm"
-      ;;
-    *)
-      die "unsupported --target: ${TARGET}; expected amd or arm"
-      ;;
-  esac
-fi
-
-# 验证 target 与当前机器架构是否匹配（参考 weknora）
-if [[ "$DRY_RUN" != "1" && "$SKIP_BUILD" != "1" ]]; then
-  case "${ARCH_TAG}:${ARCH}" in
-    amd:x86_64|amd:amd64|arm:aarch64|arm:arm64)
-      ;;
-    *)
-      die "Target ${ARCH_TAG} does not match native architecture ${ARCH}. Pass correct --target or run on matching build host."
-      ;;
-  esac
-fi
-
 if [[ ${#TARGET_SHEETS[@]} -eq 0 ]]; then
-  TARGET_SHEETS=("${DEFAULT_SHEETS[@]}")
+  usage
+  die "at least one --sheet is required (script does not auto-detect architecture because each profile may need a different base image)"
 fi
 
-TAG="${ARCH_TAG}_${TAG_OVERRIDE:-$TODAY}"
+# 校验 sheet 合法
+for sheet in "${TARGET_SHEETS[@]}"; do
+  valid=0
+  for v in "${VALID_SHEETS[@]}"; do
+    [[ "$v" == "$sheet" ]] && valid=1 && break
+  done
+  [[ "$valid" == "1" ]] || die "unknown sheet: ${sheet}; expected one of: ${VALID_SHEETS[*]}"
+done
 
-log "Architecture: ${ARCH}"
-log "Target: ${ARCH_TAG}"
-log "Tag: ${TAG}"
 log "Sheets: ${TARGET_SHEETS[*]}"
 log "Components: backend=${BUILD_BACKEND} frontend=${BUILD_FRONTEND}"
 log "Push: ${PUSH_IMAGES}  Feishu: ${UPDATE_FEISHU}  DryRun: ${DRY_RUN}"
 
-if [[ "$DRY_RUN" == "1" ]]; then
-  exit 0
-fi
-
 # =============================================================================
-# Build phase
+# Build phase: 每个 sheet 单独构建一份镜像（可能 Dockerfile 不同）
 # =============================================================================
 
 if [[ "$SKIP_BUILD" != "1" ]]; then
-  if [[ "$BUILD_BACKEND" == "1" ]]; then
-    build_and_push "$ARCH_TAG" "backend" "docker/Dockerfile"
-  fi
-  if [[ "$BUILD_FRONTEND" == "1" ]]; then
-    build_and_push "$ARCH_TAG" "frontend" "frontend/Dockerfile"
-  fi
+  for sheet in "${TARGET_SHEETS[@]}"; do
+    tag_prefix="$(sheet_to_tag_prefix "$sheet")"
+    if [[ -z "$tag_prefix" ]]; then
+      die "no tag prefix mapping for sheet: ${sheet}"
+    fi
+    if [[ "$BUILD_BACKEND" == "1" ]]; then
+      df="$(resolve_dockerfile backend "$sheet")"
+      build_and_push "$sheet" "backend" "$df" "$tag_prefix"
+    fi
+    if [[ "$BUILD_FRONTEND" == "1" ]]; then
+      df="$(resolve_dockerfile frontend "$sheet")"
+      build_and_push "$sheet" "frontend" "$df" "$tag_prefix"
+    fi
+  done
 fi
 
 # =============================================================================
@@ -554,31 +594,34 @@ if [[ "$UPDATE_FEISHU" == "1" ]]; then
   FEISHU_APP_SECRET="$(read_feishu_field "feishu_app_secret")"
   [[ -n "$FEISHU_APP_ID" && -n "$FEISHU_APP_SECRET" ]] || die "feishu_app_id or feishu_app_secret missing in $FEISHU_CONFIG_FILE"
 
-  for sheet_title in "${TARGET_SHEETS[@]}"; do
+  for sheet in "${TARGET_SHEETS[@]}"; do
+    tag_prefix="$(sheet_to_tag_prefix "$sheet")"
+    tag="${tag_prefix}_${TAG_OVERRIDE:-$TODAY}"
+
     token="$(get_feishu_token "$FEISHU_APP_ID" "$FEISHU_APP_SECRET")"
-    sheet_id="$(get_sheet_id_by_title "$token" "$sheet_title")"
-    log "Resolved sheet: ${sheet_title} -> ${sheet_id}"
+    sheet_id="$(get_sheet_id_by_title "$token" "$sheet")"
+    log "Resolved sheet: ${sheet} -> ${sheet_id}"
 
     token="$(get_feishu_token "$FEISHU_APP_ID" "$FEISHU_APP_SECRET")"
     date_row="$(find_date_row "$token" "$sheet_id" "$TODAY")"
     if [[ -z "$date_row" ]]; then
-      log "Date ${TODAY} not found in ${sheet_title}, creating a new row at top of data area"
+      log "Date ${TODAY} not found in ${sheet}, creating a new row at top of data area"
       token="$(get_feishu_token "$FEISHU_APP_ID" "$FEISHU_APP_SECRET")"
       prepend_date_row "$token" "$sheet_id" "$TODAY"
       date_row=4
     else
-      log "Date ${TODAY} already exists in ${sheet_title} at row ${date_row}"
+      log "Date ${TODAY} already exists in ${sheet} at row ${date_row}"
     fi
 
     if [[ "$BUILD_BACKEND" == "1" ]]; then
       token="$(get_feishu_token "$FEISHU_APP_ID" "$FEISHU_APP_SECRET")"
-      update_feishu_cell "$token" "$sheet_id" "$sheet_title" \
-        "$BACKEND_COMPONENT_NAME" "$BACKEND_REPOSITORY" "$date_row" "$TAG"
+      update_feishu_cell "$token" "$sheet_id" "$sheet" \
+        "$BACKEND_COMPONENT_NAME" "$BACKEND_REPOSITORY" "$date_row" "$tag"
     fi
     if [[ "$BUILD_FRONTEND" == "1" ]]; then
       token="$(get_feishu_token "$FEISHU_APP_ID" "$FEISHU_APP_SECRET")"
-      update_feishu_cell "$token" "$sheet_id" "$sheet_title" \
-        "$FRONTEND_COMPONENT_NAME" "$FRONTEND_REPOSITORY" "$date_row" "$TAG"
+      update_feishu_cell "$token" "$sheet_id" "$sheet" \
+        "$FRONTEND_COMPONENT_NAME" "$FRONTEND_REPOSITORY" "$date_row" "$tag"
     fi
   done
 fi

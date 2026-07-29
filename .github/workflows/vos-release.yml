@@ -78,12 +78,12 @@ jobs:
 
       - name: Publish package to VOS App Store
         env:
-          APP_STORE: ${{ secrets.APP_STORE }}
+          APP_STORE: ${{ secrets.APP_STORE || vars.APP_STORE || 'https://123.207.15.89:46155/app/com.ictrek.appstore' }}
         run: |
           set -euo pipefail
           if [[ -z "${APP_STORE:-}" ]]; then
-            echo "APP_STORE is not configured; skip VOS App Store publish."
-            exit 0
+            echo "APP_STORE is not configured" >&2
+            exit 1
           fi
 
           VERSION="${GITHUB_REF_NAME#vos-desensitize-v}"

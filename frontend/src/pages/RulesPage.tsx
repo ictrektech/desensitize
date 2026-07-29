@@ -19,11 +19,16 @@ export default function RulesPage({ rules, onRefresh }: Props) {
     category: 'custom',
   })
   const [error, setError] = useState('')
+  const [testText, setTestText] = useState('')
+  const [testResult, setTestResult] = useState<{ matched: boolean; result: string; match_count: number } | null>(null)
+  const [testing, setTesting] = useState(false)
 
   const openCreate = () => {
     setEditingRule(null)
     setForm({ name: '', description: '', pattern: '', placeholder: '[REDACTED]', priority: 0, enabled: true, category: 'custom' })
     setError('')
+    setTestText('')
+    setTestResult(null)
     setShowModal(true)
   }
 
@@ -40,7 +45,31 @@ export default function RulesPage({ rules, onRefresh }: Props) {
       category: rule.category,
     })
     setError('')
+    setTestText('')
+    setTestResult(null)
     setShowModal(true)
+  }
+
+  const handleTest = async () => {
+    setError('')
+    if (!form.pattern) {
+      setError('请先填写正则表达式')
+      return
+    }
+    if (!testText) {
+      setError('请输入测试文本')
+      return
+    }
+    setTesting(true)
+    try {
+      const result = await api.testPattern(form.pattern, testText, form.placeholder)
+      setTestResult(result)
+    } catch (e: any) {
+      setError(e.message || '测试失败')
+      setTestResult(null)
+    } finally {
+      setTesting(false)
+    }
   }
 
   const handleSave = async () => {
@@ -91,6 +120,9 @@ export default function RulesPage({ rules, onRefresh }: Props) {
     return <span className={`badge ${map[cat] || 'badge-custom'}`}>{cat}</span>
   }
 
+  const builtinRules = rules.filter(r => r.builtin)
+  const customRules = rules.filter(r => !r.builtin)
+
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
@@ -98,31 +130,68 @@ export default function RulesPage({ rules, onRefresh }: Props) {
         <button className="btn btn-primary" onClick={openCreate}>+ 添加规则</button>
       </div>
 
-      {rules.length === 0 ? (
-        <div className="empty-state">暂无规则</div>
+      {/* 内置规则 */}
+      <div className="card" style={{ padding: '12px 16px', marginBottom: '16px' }}>
+        <div className="card-title" style={{ marginBottom: '8px' }}>
+          内置规则 ({builtinRules.length})
+          <span style={{ fontSize: '12px', color: 'var(--text-secondary)', fontWeight: 'normal', marginLeft: '8px' }}>
+            不可修改、不可删除
+          </span>
+        </div>
+      </div>
+      {builtinRules.map(rule => (
+        <div key={rule.id} className="rule-item">
+          <div className="rule-header">
+            <span className="rule-name">{rule.name}</span>
+            <span className="badge badge-builtin">内置</span>
+            {categoryBadge(rule.category)}
+            <span className={`badge ${rule.enabled ? 'badge-enabled' : 'badge-disabled'}`}>
+              {rule.enabled ? '启用' : '禁用'}
+            </span>
+            <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>优先级: {rule.priority}</span>
+          </div>
+          {rule.description && <div className="rule-description">{rule.description}</div>}
+          <div>
+            <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>正则: </span>
+            <span className="rule-pattern">{rule.pattern}</span>
+          </div>
+          <div>
+            <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>替换为: </span>
+            <span className="rule-placeholder">{rule.placeholder}</span>
+          </div>
+        </div>
+      ))}
+
+      {/* 自定义规则 */}
+      <div className="card" style={{ padding: '12px 16px', marginBottom: '16px', marginTop: '24px' }}>
+        <div className="card-title" style={{ marginBottom: '8px' }}>
+          自定义规则 ({customRules.length})
+          <span style={{ fontSize: '12px', color: 'var(--text-secondary)', fontWeight: 'normal', marginLeft: '8px' }}>
+            可添加、修改、删除
+          </span>
+        </div>
+      </div>
+      {customRules.length === 0 ? (
+        <div className="empty-state" style={{ padding: '20px' }}>
+          暂无自定义规则，点击右上角"添加规则"创建
+        </div>
       ) : (
-        rules.map(rule => (
+        customRules.map(rule => (
           <div key={rule.id} className="rule-item">
             <div className="rule-header">
               <span className="rule-name">{rule.name}</span>
-              <span className={`badge ${rule.builtin ? 'badge-builtin' : 'badge-custom'}`}>
-                {rule.builtin ? '内置' : '自定义'}
-              </span>
+              <span className="badge badge-custom">自定义</span>
               {categoryBadge(rule.category)}
               <span className={`badge ${rule.enabled ? 'badge-enabled' : 'badge-disabled'}`}>
                 {rule.enabled ? '启用' : '禁用'}
               </span>
               <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>优先级: {rule.priority}</span>
               <div className="rule-actions">
-                {!rule.builtin && (
-                  <>
-                    <button className="btn btn-sm" onClick={() => openEdit(rule)}>编辑</button>
-                    <button className="btn btn-sm" onClick={() => handleToggle(rule)}>
-                      {rule.enabled ? '禁用' : '启用'}
-                    </button>
-                    <button className="btn btn-sm btn-danger" onClick={() => handleDelete(rule.id)}>删除</button>
-                  </>
-                )}
+                <button className="btn btn-sm" onClick={() => openEdit(rule)}>编辑</button>
+                <button className="btn btn-sm" onClick={() => handleToggle(rule)}>
+                  {rule.enabled ? '禁用' : '启用'}
+                </button>
+                <button className="btn btn-sm btn-danger" onClick={() => handleDelete(rule.id)}>删除</button>
               </div>
             </div>
             {rule.description && <div className="rule-description">{rule.description}</div>}
@@ -211,7 +280,7 @@ export default function RulesPage({ rules, onRefresh }: Props) {
               </select>
             </div>
 
-            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '14px' }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '14px', marginBottom: '16px' }}>
               <input
                 type="checkbox"
                 checked={form.enabled}
@@ -219,6 +288,50 @@ export default function RulesPage({ rules, onRefresh }: Props) {
               />
               启用此规则
             </label>
+
+            {/* 测试区域 */}
+            <div style={{ borderTop: '1px solid var(--border)', paddingTop: '16px', marginBottom: '8px' }}>
+              <div className="form-group">
+                <label className="form-label">测试文本（保存前验证规则是否生效）</label>
+                <textarea
+                  className="form-textarea"
+                  value={testText}
+                  onChange={e => setTestText(e.target.value)}
+                  placeholder="输入一段包含敏感信息的文本，例如: 我的密钥是 wwapi_abc123def456ghi789jkl"
+                  style={{ minHeight: '60px' }}
+                />
+              </div>
+              <button className="btn" onClick={handleTest} disabled={testing || !form.pattern || !testText}>
+                {testing ? '测试中...' : '测试规则'}
+              </button>
+
+              {testResult && (
+                <div className="result-box" style={{ marginTop: '12px' }}>
+                  <div style={{ marginBottom: '4px' }}>
+                    <strong>匹配结果:</strong> {testResult.matched ? (
+                      <span style={{ color: 'var(--success)' }}>✓ 命中 {testResult.match_count} 处</span>
+                    ) : (
+                      <span style={{ color: 'var(--danger)' }}>✗ 未命中</span>
+                    )}
+                  </div>
+                  <div style={{ marginTop: '8px' }}>
+                    <strong>脱敏后:</strong>
+                    <div style={{
+                      marginTop: '4px',
+                      padding: '8px',
+                      background: 'var(--code-bg)',
+                      borderRadius: '4px',
+                      fontFamily: "'SF Mono', monospace",
+                      fontSize: '13px',
+                      whiteSpace: 'pre-wrap',
+                      wordBreak: 'break-all',
+                    }}>
+                      {testResult.result}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
 
             <div className="modal-actions">
               <button className="btn" onClick={() => setShowModal(false)}>取消</button>

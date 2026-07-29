@@ -67,9 +67,33 @@ npm run dev
 
 ### 构建镜像
 
+镜像构建只区分两种通用架构，tag 固定为 `<platform>_<YYYYMMDD>`：
+
+| 构建参数 | 构建机 | 镜像 tag | 同步写入的飞书 sheet |
+| --- | --- | --- | --- |
+| `--platform amd` | `tc232` | `amd_20260729` | `AMD_with_cuda`、`AMD_with_mxn100` |
+| `--platform arm` | `tc81` | `arm_20260729` | `ARM_with_cuda`、`ARM_without_cuda`、`l4t`、`thor_spark`、`SOPHON_bm1688` |
+
 ```bash
-cd docker
-./build_image.sh
+cd apps/desensitize
+
+# AMD64：构建一次 backend + frontend，推送后写入全部 AMD sheet
+./docker/build_image.sh --platform amd
+
+# ARM64：构建一次 backend + frontend，推送后写入全部 ARM sheet
+./docker/build_image.sh --platform arm
+```
+
+不要使用 `--sheet` 或自定义功能后缀 tag。当前各 ARM / AMD profile 共用通用镜像；
+未来某个 profile 需要 CUDA、PyTorch 或设备专用运行时，再在构建脚本中为该 profile
+增加专用构建映射。**打包脚本不会跨 sheet 查找镜像**：`l4t` 始终从 `l4t` sheet 读，
+`arm` 始终从 `ARM_with_cuda` sheet 读，等专用镜像出现后无需修改打包逻辑。
+
+只重建单个组件时：
+
+```bash
+./docker/build_image.sh --platform arm --component frontend
+./docker/build_image.sh --platform amd --component backend
 ```
 
 ### VOS 打包
@@ -91,6 +115,10 @@ ictrek.app/scripts/update_version.sh patch
 
 脚本只推送 `vos-desensitize-v<version>` 触发 tag。GitHub Actions 打包、创建
 `v<version>` GitHub Release，并将安装包发布到已配置的 VOS App Store。
+
+完整发布顺序：先在 tc232/tc81 构建并确认两个平台镜像已写入全部对应 sheet；再提交
+代码，运行 `update_version.sh patch`。CI 只负责从每个 profile 自己的 sheet 读取 tag、
+生成 pull 模式 VOS 包和发布应用商店，不重新构建镜像。
 
 ## 内置规则
 

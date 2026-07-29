@@ -4,13 +4,15 @@ set -euo pipefail
 # =============================================================================
 # desensitize build/push script
 # =============================================================================
-# 在构建机本地执行：按 --sheet 显式指定 profile/sheet，构建镜像、推送 SWR、
-# 将 tag 写入飞书发布表对应 sheet。
+# 在构建机本地执行：按 --platform arm|amd 构建一套通用架构镜像、推送 SWR，
+# 并将同一个 platform_YYYYMMDD tag 写入该架构的每个飞书 profile sheet。
 #
 # 使用方式（在构建机上执行）:
-#   tc232:  ./docker/build_image.sh --sheet AMD_with_cuda --sheet AMD_with_mxn100
-#   tc81:   ./docker/build_image.sh --sheet ARM_with_cuda --sheet ARM_without_cuda \
-#                                   --sheet l4t --sheet thor_spark
+#   tc232:  ./docker/build_image.sh --platform amd
+#   tc81:   ./docker/build_image.sh --platform arm
+#
+# 打包时仍严格按 profile 从其自己的飞书 sheet 读取镜像 tag；构建脚本的全表写入
+# 只是在当前通用 ARM/AMD 镜像阶段保持各 profile 的发布记录同步。
 #
 # 飞书表格结构（与 weknora/lexai 一致）:
 #   - 第 1 行：服务名（镜像本名，如 desensitize-backend）
@@ -29,38 +31,24 @@ REGISTRY="${REGISTRY:-swr.cn-southwest-2.myhuaweicloud.com/ictrek}"
 BACKEND_REPOSITORY="${REGISTRY}/desensitize-backend"
 FRONTEND_REPOSITORY="${REGISTRY}/desensitize-frontend"
 
-# sheet -> 镜像 tag 前缀
-sheet_to_tag_prefix() {
+platform_sheets() {
   case "$1" in
-    AMD_with_cuda)    echo "amd" ;;
-    AMD_with_mxn100)  echo "amd_mxn100" ;;
-    ARM_with_cuda)    echo "arm" ;;
-    ARM_without_cuda) echo "arm" ;;
-    l4t)              echo "l4t" ;;
-    thor_spark)       echo "thor_spark" ;;
-    SOPHON_bm1688)    echo "sophon" ;;
+    amd) printf '%s\n' AMD_with_cuda AMD_with_mxn100 ;;
+    arm) printf '%s\n' ARM_with_cuda ARM_without_cuda l4t thor_spark SOPHON_bm1688 ;;
     *) return 1 ;;
   esac
 }
 
-# sheet -> 期望的 backend Dockerfile；缺失则回退到默认 docker/Dockerfile
-sheet_to_dockerfile() {
+platform_dockerfile() {
   case "$1" in
-    AMD_with_cuda)    echo "docker/Dockerfile.amd" ;;
-    AMD_with_mxn100)  echo "docker/Dockerfile.amd_mxn100" ;;
-    ARM_with_cuda)    echo "docker/Dockerfile.arm" ;;
-    ARM_without_cuda) echo "docker/Dockerfile.arm" ;;
-    l4t)              echo "docker/Dockerfile.l4t" ;;
-    thor_spark)       echo "docker/Dockerfile.thor_spark" ;;
-    SOPHON_bm1688)    echo "docker/Dockerfile.sophon" ;;
+    amd) echo "docker/Dockerfile.amd" ;;
+    arm) echo "docker/Dockerfile.arm" ;;
     *) return 1 ;;
   esac
 }
 
 DEFAULT_BACKEND_DOCKERFILE="docker/Dockerfile"
 DEFAULT_FRONTEND_DOCKERFILE="frontend/Dockerfile"
-
-VALID_SHEETS=("AMD_with_cuda" "AMD_with_mxn100" "ARM_with_cuda" "ARM_without_cuda" "l4t" "thor_spark" "SOPHON_bm1688")
 
 TODAY="$(date +%Y%m%d)"
 TAG_OVERRIDE=""
@@ -73,6 +61,7 @@ DRY_RUN=0
 SKIP_BUILD=0
 BUILD_ENGINE="${DESENSITIZE_BUILD_ENGINE:-auto}"
 
+TARGET_PLATFORM=""
 TARGET_SHEETS=()
 
 log() { echo "[INFO] $*"; }
@@ -113,23 +102,25 @@ docker_build_image() {
 
 usage() {
   cat <<'EOF'
-Usage: ./docker/build_image.sh --sheet SHEET [--sheet SHEET ...] [options]
+Usage: ./docker/build_image.sh --platform amd|arm [options]
 
-Build desensitize images for the specified profile sheets and record tags in Feishu.
+Build one desensitize image pair for an architecture and record the same tag in
+every matching Feishu profile sheet. Packages still resolve images from each
+profile's own sheet.
 
-Profiles:
-  AMD:      AMD_with_cuda, AMD_with_mxn100
-  ARM:      ARM_with_cuda, ARM_without_cuda, l4t, thor_spark, SOPHON_bm1688
+Platforms and synced sheets:
+  amd: AMD_with_cuda, AMD_with_mxn100
+  arm: ARM_with_cuda, ARM_without_cuda, l4t, thor_spark, SOPHON_bm1688
 
 Options:
-  --sheet SHEET            Feishu sheet / profile (can be repeated)
+  --platform PLATFORM      amd or arm; builds one image pair for that architecture
   --component backend      Build only backend
   --component frontend     Build only frontend
   --no-push                Build locally without docker push
   --no-feishu              Do not update Feishu
   --feishu-only            Only write tags to Feishu (no build/push)
   --dry-run                Print plan without executing
-  --tag TAG                Override tag (default: <sheet>_<YYYYMMDD>)
+  --tag TAG                Override date suffix (default: YYYYMMDD); final tag is <platform>_<suffix>
   -h, --help               Show this help
 
 Environment:
@@ -384,7 +375,7 @@ update_feishu_cell() {
 
 resolve_dockerfile() {
   local component="$1"
-  local sheet="$2"
+  local platform="$2"
   local preferred
 
   if [[ "$component" == "frontend" ]]; then
@@ -392,7 +383,7 @@ resolve_dockerfile() {
     return 0
   fi
 
-  preferred="$(sheet_to_dockerfile "$sheet" 2>/dev/null || true)"
+  preferred="$(platform_dockerfile "$platform" 2>/dev/null || true)"
   if [[ -n "$preferred" && -f "$preferred" ]]; then
     echo "$preferred"
     return 0
@@ -402,11 +393,10 @@ resolve_dockerfile() {
 }
 
 build_and_push() {
-  local sheet="$1"
+  local platform="$1"
   local component="$2"
   local dockerfile="$3"
-  local tag_prefix="$4"
-  local tag="${tag_prefix}_${TAG_OVERRIDE:-$TODAY}"
+  local tag="${platform}_${TAG_OVERRIDE:-$TODAY}"
   local image_name
 
   case "$component" in
@@ -415,7 +405,7 @@ build_and_push() {
     *) die "unknown component: $component" ;;
   esac
 
-  log "Building ${component} (${sheet}, tag=${tag}): ${image_name} via ${dockerfile}"
+  log "Building ${component} (${platform}, tag=${tag}): ${image_name} via ${dockerfile}"
 
   if [[ "$DRY_RUN" == "1" ]]; then
     log "[DRY] Would build: docker buildx build --load -f ${dockerfile} -t ${image_name} ."
@@ -439,9 +429,13 @@ build_and_push() {
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --sheet)
-      TARGET_SHEETS+=("$2")
+    --platform)
+      [[ -z "$TARGET_PLATFORM" ]] || die "--platform may only be set once"
+      TARGET_PLATFORM="$2"
       shift 2
+      ;;
+    --sheet)
+      die "--sheet is no longer supported; use --platform amd|arm so every matching profile sheet receives the same tag"
       ;;
     --component)
       case "$2" in
@@ -494,20 +488,21 @@ if [[ "$UPDATE_FEISHU" == "1" ]]; then
   require_cmd curl
 fi
 
-if [[ ${#TARGET_SHEETS[@]} -eq 0 ]]; then
+if [[ -z "$TARGET_PLATFORM" ]]; then
   usage
-  die "at least one --sheet is required"
+  die "--platform amd|arm is required"
 fi
 
-for sheet in "${TARGET_SHEETS[@]}"; do
-  valid=0
-  for v in "${VALID_SHEETS[@]}"; do
-    [[ "$v" == "$sheet" ]] && valid=1 && break
-  done
-  [[ "$valid" == "1" ]] || die "unknown sheet: ${sheet}; expected one of: ${VALID_SHEETS[*]}"
-done
+case "$TARGET_PLATFORM" in
+  amd|arm) ;;
+  *) die "unknown platform: ${TARGET_PLATFORM}; expected amd or arm" ;;
+esac
+while IFS= read -r sheet; do
+  [[ -n "$sheet" ]] && TARGET_SHEETS+=("$sheet")
+done < <(platform_sheets "$TARGET_PLATFORM")
 
-log "Sheets: ${TARGET_SHEETS[*]}"
+log "Platform: ${TARGET_PLATFORM}"
+log "Synced sheets: ${TARGET_SHEETS[*]}"
 log "Components: backend=${BUILD_BACKEND} frontend=${BUILD_FRONTEND}"
 log "Push: ${PUSH_IMAGES}  Feishu: ${UPDATE_FEISHU}  DryRun: ${DRY_RUN}"
 
@@ -519,20 +514,14 @@ if [[ "$SKIP_BUILD" != "1" ]]; then
   configure_build_engine
   log "BUILD_ENGINE=${BUILD_ENGINE}"
 
-  for sheet in "${TARGET_SHEETS[@]}"; do
-    tag_prefix="$(sheet_to_tag_prefix "$sheet")"
-    if [[ -z "$tag_prefix" ]]; then
-      die "no tag prefix mapping for sheet: ${sheet}"
-    fi
-    if [[ "$BUILD_BACKEND" == "1" ]]; then
-      df="$(resolve_dockerfile backend "$sheet")"
-      build_and_push "$sheet" "backend" "$df" "$tag_prefix"
-    fi
-    if [[ "$BUILD_FRONTEND" == "1" ]]; then
-      df="$(resolve_dockerfile frontend "$sheet")"
-      build_and_push "$sheet" "frontend" "$df" "$tag_prefix"
-    fi
-  done
+  if [[ "$BUILD_BACKEND" == "1" ]]; then
+    df="$(resolve_dockerfile backend "$TARGET_PLATFORM")"
+    build_and_push "$TARGET_PLATFORM" "backend" "$df"
+  fi
+  if [[ "$BUILD_FRONTEND" == "1" ]]; then
+    df="$(resolve_dockerfile frontend "$TARGET_PLATFORM")"
+    build_and_push "$TARGET_PLATFORM" "frontend" "$df"
+  fi
 fi
 
 # =============================================================================
@@ -547,8 +536,7 @@ if [[ "$UPDATE_FEISHU" == "1" ]]; then
   [[ -n "$FEISHU_APP_ID" && -n "$FEISHU_APP_SECRET" ]] || die "feishu_app_id or feishu_app_secret missing in $FEISHU_CONFIG_FILE"
 
   for sheet in "${TARGET_SHEETS[@]}"; do
-    tag_prefix="$(sheet_to_tag_prefix "$sheet")"
-    tag="${tag_prefix}_${TAG_OVERRIDE:-$TODAY}"
+    tag="${TARGET_PLATFORM}_${TAG_OVERRIDE:-$TODAY}"
 
     token="$(get_feishu_token "$FEISHU_APP_ID" "$FEISHU_APP_SECRET")"
     sheet_id="$(get_sheet_id_by_title "$token" "$sheet")"

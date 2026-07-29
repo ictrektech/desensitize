@@ -1,64 +1,67 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# =============================================================================
-# desensitize version bump + tag + push (triggers CI to build package)
-#
-# Usage:
-#   ./scripts/update_version.sh           # bump patch (default)
-#   ./scripts/update_version.sh minor     # bump minor
-#   ./scripts/update_version.sh major     # bump major
-# =============================================================================
-
-cd "$(dirname "${BASH_SOURCE[0]}")/.."
-
-VERSION_FILE="VERSION"
+APP_LABEL="desensitize"
 TAG_PREFIX="vos-desensitize-v"
+VERSION_FILE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/VERSION"
+REPO_ROOT="$(git -C "$(dirname "$VERSION_FILE")" rev-parse --show-toplevel)"
 
-BUMP_TYPE="${1:-patch}"
+usage() {
+  cat <<'EOF'
+Usage:
+  ./scripts/update_version.sh [patch|minor|major]
 
-log() { echo "[INFO] $*"; }
-die() { echo "[ERROR] $*" >&2; exit 1; }
+Updates ictrek.app/VERSION, commits it, creates a VOS CI trigger tag, and
+pushes the branch and tag. GitHub Actions publishes the pull-mode tar on a
+standard SemVer release tag.
+Commit application code changes before running this script.
+EOF
+}
 
-# Ensure clean working tree
-if ! git diff --quiet || ! git diff --cached --quiet; then
-  die "Working tree not clean. Please commit your changes first."
-fi
+bump_version() {
+  local part="$1" current major minor patch
+  current="$(tr -d '[:space:]' < "$VERSION_FILE")"
+  [[ "$current" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || {
+    echo "invalid VERSION: $current" >&2
+    exit 1
+  }
+  IFS=. read -r major minor patch <<< "$current"
+  case "$part" in
+    patch) patch=$((patch + 1)) ;;
+    minor) minor=$((minor + 1)); patch=0 ;;
+    major) major=$((major + 1)); minor=0; patch=0 ;;
+    *) usage >&2; exit 1 ;;
+  esac
+  printf '%s.%s.%s\n' "$major" "$minor" "$patch"
+}
 
-# Read current version
-CURRENT_VERSION="$(tr -d '[:space:]' < "$VERSION_FILE")"
-log "Current version: $CURRENT_VERSION"
+part="${1:-patch}"
+[[ "${1:-}" != "-h" && "${1:-}" != "--help" ]] || { usage; exit 0; }
 
-# Bump version
-IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT_VERSION"
-case "$BUMP_TYPE" in
-  major)   MAJOR=$((MAJOR + 1)); MINOR=0; PATCH=0 ;;
-  minor)   MINOR=$((MINOR + 1)); PATCH=0 ;;
-  patch)   PATCH=$((PATCH + 1)) ;;
-  *) die "Unknown bump type: $BUMP_TYPE" ;;
-esac
-NEW_VERSION="${MAJOR}.${MINOR}.${PATCH}"
-log "New version: $NEW_VERSION"
+cd "$REPO_ROOT"
+git diff --quiet && git diff --cached --quiet || {
+  echo "worktree is not clean; commit code changes before releasing" >&2
+  exit 1
+}
 
-# Write new version
-echo "$NEW_VERSION" > "$VERSION_FILE"
+version="$(bump_version "$part")"
+tag="${TAG_PREFIX}${version}"
+public_tag="v${version}"
+git rev-parse -q --verify "refs/tags/${tag}" >/dev/null && {
+  echo "tag already exists: ${tag}" >&2
+  exit 1
+}
+git rev-parse -q --verify "refs/tags/${public_tag}" >/dev/null && {
+  echo "public release tag already exists: ${public_tag}" >&2
+  exit 1
+}
+
+printf '%s\n' "$version" > "$VERSION_FILE"
 git add "$VERSION_FILE"
+git commit -m "chore: release VOS ${APP_LABEL} ${version}"
+git tag "$tag"
+branch="$(git branch --show-current)"
+git push origin "$branch"
+git push origin "$tag"
 
-# Commit version bump
-git commit -m "chore: bump desensitize to ${NEW_VERSION}"
-
-# Create tags
-VOS_TAG="${TAG_PREFIX}${NEW_VERSION}"
-PUBLIC_TAG="v${NEW_VERSION}"
-
-git tag "$VOS_TAG"
-git tag "$PUBLIC_TAG"
-
-log "Created tags: ${VOS_TAG}, ${PUBLIC_TAG}"
-
-# Push
-git push origin HEAD
-git push origin "$VOS_TAG"
-git push origin "$PUBLIC_TAG"
-
-log "Pushed. CI will build the package when the ${VOS_TAG} tag is processed."
+echo "Pushed ${tag}. GitHub Actions will build the pull tar and create release ${public_tag}."

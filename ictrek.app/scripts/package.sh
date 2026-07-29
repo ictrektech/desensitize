@@ -323,39 +323,46 @@ build_env() {
 }
 
 verify_package() {
-  local tarball="$1"
-  log "Verifying package: $tarball"
+  local package_path="$1"
+  local app_tarball="$2"
+  local app_listing package_listing package_text manifest_text routers_text compose_text
 
-  local tmpdir
-  tmpdir="$(mktemp -d)"
-  tar xzf "$tarball" -C "$tmpdir"
+  app_listing="$(tar tzf "$app_tarball")"
+  package_listing="$(tar tf "$package_path")"
+  printf '%s\n' "$app_listing" | grep -qx 'manifest.yml'
+  printf '%s\n' "$app_listing" | grep -qx 'README.zh-CN.md'
+  printf '%s\n' "$package_listing" | grep -qx 'app.tar.gz'
+  ! printf '%s\n' "$package_listing" | grep -q '^assets/'
 
-  # Check manifest exists
-  [[ -f "$tmpdir/manifest.yml" ]] || die "manifest.yml not found in package"
-
-  # Check no template placeholders remain
-  if grep -r '__[A-Z_]*__' "$tmpdir/" 2>/dev/null; then
-    die "Unresolved template placeholders found in package"
+  package_text="$(printf '%s\n' "$app_listing" | while IFS= read -r file; do [[ "$file" == */ ]] && continue; tar xOf "$app_tarball" "$file"; printf '\n'; done)"
+  if printf '%s' "$package_text" | grep -q '__[A-Z0-9_]\+__'; then
+    die 'unrendered placeholder remains'
   fi
 
-  # Check docker-compose has no unresolved image variables
-  if grep -E '\$\{[A-Z_]+_IMAGE\}' "$tmpdir/docker-compose.yml" 2>/dev/null; then
-    die "Unresolved image variables in docker-compose.yml"
+  manifest_text="$(tar xOf "$app_tarball" manifest.yml)"
+  printf '%s\n' "$manifest_text" | grep -q '^[[:space:]]*frontend:[[:space:]]*$' || die 'manifest.yml frontend section missing'
+  printf '%s\n' "$manifest_text" | grep -q '^[[:space:]]*enabled:[[:space:]]*true[[:space:]]*$' || die 'manifest.yml frontend.enabled must be true'
+  printf '%s\n' "$manifest_text" | grep -Fq "  basePath: ${FRONTEND_BASE_PATH}" || die "manifest.yml frontend.basePath must be ${FRONTEND_BASE_PATH}"
+
+  compose_text="$(tar xOf "$app_tarball" docker-compose.yml)"
+  if printf '%s\n' "$compose_text" | grep -q '\${[^}]*_IMAGE[^}]*}'; then
+    die 'unrendered image variable remains in docker-compose.yml'
   fi
+  if printf '%s\n' "$compose_text" | awk '/^[[:space:]]*image:/ {print $2}' | grep -v '^[^/[:space:]]\+\.[^/[:space:]]\+/' | grep -q .; then
+    die 'docker-compose.yml contains short image reference'
+  fi
+  printf '%s\n' "$compose_text" | grep -Fq 'HeadersRegexp(`Sec-Fetch-Dest`, `document`)' || die 'top-level document redirect missing'
+  printf '%s\n' "$compose_text" | grep -Fq "${ROUTER_HASH_PATH}" || die "top-level redirect must target ${ROUTER_HASH_PATH}"
 
-  # Check frontend fields exist
-  grep -q 'frontend:' "$tmpdir/manifest.yml" || die "frontend section missing in manifest.yml"
-  grep -q 'enabled: true' "$tmpdir/manifest.yml" || die "frontend.enabled not true in manifest.yml"
-
-  # Check Sec-Fetch-Dest redirect exists
-  grep -q 'Sec-Fetch-Dest' "$tmpdir/docker-compose.yml" || die "Sec-Fetch-Dest redirect missing in docker-compose.yml"
-
-  # Check routers.yml has entry-point and embed
-  grep -q 'entry-point: true' "$tmpdir/routers.yml" || die "entry-point: true missing in routers.yml"
-  grep -q 'embed: true' "$tmpdir/routers.yml" || die "embed: true missing in routers.yml"
-
-  rm -rf "$tmpdir"
-  log "Package verification passed"
+  routers_text="$(tar xOf "$app_tarball" routers.yml)"
+  printf '%s\n' "$routers_text" | grep -Fq "  - id: ${ROUTER_GROUP_ID}" || die "routers.yml group id must be ${ROUTER_GROUP_ID}"
+  printf '%s\n' "$routers_text" | grep -Fq "      - id: ${ROUTER_PAGE_ID}" || die "routers.yml page id must be ${ROUTER_PAGE_ID}"
+  printf '%s\n' "$routers_text" | grep -Fq "        iframe-src: ${ROUTER_IFRAME_SRC}" || die "routers.yml iframe-src must be ${ROUTER_IFRAME_SRC}"
+  if printf '%s\n' "$routers_text" | grep -Eq 'iframe-src:[[:space:]]*https?://'; then
+    die 'routers.yml iframe-src must use a same-origin VOS path'
+  fi
+  printf '%s\n' "$routers_text" | grep -q 'entry-point:[[:space:]]*true' || die 'routers.yml entry-point missing'
+  printf '%s\n' "$routers_text" | grep -q 'embed:[[:space:]]*true' || die 'routers.yml embed missing'
 }
 
 main() {
@@ -365,8 +372,14 @@ main() {
 
   acquire_lock
 
-  APP_VERSION="$(read_version)"
-  log "Building package for ${APP_ID} version ${APP_VERSION}"
+  if [[ -n "${PACKAGE_VERSION:-}" ]]; then
+    [[ "$PACKAGE_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || die "invalid PACKAGE_VERSION: $PACKAGE_VERSION"
+    APP_VERSION="$PACKAGE_VERSION"
+  else
+    APP_VERSION="$(read_version)"
+  fi
+  [[ "$APP_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || die "invalid VERSION: $APP_VERSION"
+  log "Building pull-mode package for ${APP_ID} version ${APP_VERSION}"
 
   rm -rf "$STAGE_DIR" "$PACKAGE_ROOT"
   mkdir -p "$STAGE_DIR"
@@ -383,13 +396,15 @@ main() {
   render_template "$SRC_DIR/README.zh-CN.md" "$STAGE_DIR/README.zh-CN.md"
   render_template "$SRC_DIR/README.en.md" "$STAGE_DIR/README.en.md"
 
-  # Create app.tar.gz
+  local app_tarball="${DIST_DIR}/app.tar.gz"
   local tarball="${DIST_DIR}/${APP_NAME}_${APP_VERSION}_pull.tar"
-  tar czf "$tarball" -C "$STAGE_DIR" .
-  log "Created package: $tarball"
+  tar czf "$app_tarball" -C "$STAGE_DIR" .env manifest.yml docker-compose.yml configs.yml routers.yml README.zh-CN.md README.en.md
+  rm -rf "$PACKAGE_ROOT"
+  mkdir -p "$PACKAGE_ROOT"
+  cp "$app_tarball" "$PACKAGE_ROOT/app.tar.gz"
+  tar cf "$tarball" -C "$PACKAGE_ROOT" app.tar.gz
 
-  verify_package "$tarball"
-
+  verify_package "$tarball" "$app_tarball"
   log "Done: $tarball"
 }
 

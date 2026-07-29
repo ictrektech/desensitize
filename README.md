@@ -79,6 +79,19 @@ cd ictrek.app
 ./scripts/package.sh
 ```
 
+打包产物为 `dist/desensitize_<version>_pull.tar`，外层安装包只包含
+`app.tar.gz`；镜像地址写在包内 `.env`，由 VOS 按所选 profile 拉取。
+
+发布前先提交业务修改，再执行：
+
+```bash
+cd apps/desensitize
+ictrek.app/scripts/update_version.sh patch
+```
+
+脚本只推送 `vos-desensitize-v<version>` 触发 tag。GitHub Actions 打包、创建
+`v<version>` GitHub Release，并将安装包发布到已配置的 VOS App Store。
+
 ## 内置规则
 
 | 规则 | 分类 | 占位符 |

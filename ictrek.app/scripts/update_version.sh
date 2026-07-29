@@ -12,7 +12,7 @@ set -euo pipefail
 
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
 
-VERSION_FILE="ictrek.app/VERSION"
+VERSION_FILE="VERSION"
 TAG_PREFIX="vos-desensitize-v"
 
 BUMP_TYPE="${1:-patch}"

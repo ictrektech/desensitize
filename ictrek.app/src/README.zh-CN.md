@@ -54,9 +54,13 @@ VOS 内部 iframe 页面入口为：
 
 | 目标 | 地址 |
 | --- | --- |
-| 后端 API（Docker DNS） | `http://desensitize-backend:5000` |
-| 后端 API（宿主机端口） | `http://<vos-host>:35010` |
-| 后端 API（Traefik 网关） | `http://<VOS_HOST_GW_IP>:<VOS_API_GW_PORT_INTERNAL>/api/com.ictrek.desensitize` |
+| 同一 VOS 实例的应用 | `http://desensitize-backend:5000`（调用方必须加入外部 `vos_default` 网络） |
+| VOS 内部网关 | `http://${VOS_HOST_GW_IP}:${VOS_API_GW_PORT_INTERNAL}/api/com.ictrek.desensitize` |
+| 宿主机调试端口 | `http://<vos-host>:35010`（仅限受控外部访问） |
+
+三种地址都是 API 基地址；请求单文本脱敏时追加
+`/api/v1/desensitize/text`。网关路径会由 Traefik 移除
+`/api/com.ictrek.desensitize` 前缀后再转发。
 
 ## API 接口
 
@@ -76,7 +80,7 @@ VOS 内部 iframe 页面入口为：
 
 ## 降级策略
 
-所有客户端应实现降级逻辑：当脱敏服务不可用时，直接使用原始文本，不阻塞用户请求。
+调用云模型时建议默认阻断并告警；只有经明确风险评估的本地或可信处理链路，才可使用原始文本降级。
 
 ```python
 try:

@@ -19,9 +19,12 @@ Iframe URL: `/app/com.ictrek.desensitize/`
 
 | Target | URL |
 | --- | --- |
-| Backend API (Docker DNS) | `http://desensitize-backend:5000` |
-| Backend API (Host Port) | `http://<vos-host>:35010` |
-| Backend API (Traefik) | `http://<VOS_HOST_GW_IP>:<VOS_API_GW_PORT_INTERNAL>/api/com.ictrek.desensitize` |
+| App in the same VOS instance | `http://desensitize-backend:5000` (the caller must join external `vos_default`) |
+| Internal VOS gateway | `http://${VOS_HOST_GW_IP}:${VOS_API_GW_PORT_INTERNAL}/api/com.ictrek.desensitize` |
+| Host debug port | `http://<vos-host>:35010` (controlled external access only) |
+
+Each value is an API base URL. Append `/api/v1/desensitize/text` for single-text
+desensitization. Traefik removes `/api/com.ictrek.desensitize` before forwarding.
 
 ## API Endpoints
 

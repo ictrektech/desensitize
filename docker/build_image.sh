@@ -4,39 +4,20 @@ set -euo pipefail
 # =============================================================================
 # desensitize build/push script
 # =============================================================================
-# 在构建机本地执行：按 --sheet 指定的每个 profile/sheet 单独构建一份镜像，
-# 推送到 SWR，并将 tag 写入飞书发布表对应 sheet。
-#
-# 与 model_hub/weknora 的区别：
-#   desensitize 有 6 个 profile（amd / amd-without-cuda / arm / arm-without-cuda
-#   / l4t / thor-spark），未来不同 profile 拉取的基镜像会因 pytorch 运行环境
-#   差异而不同，因此每次调用按 sheet 显式选择要构建/写入的 profile，
-#   每个 sheet 对应一份独立的镜像 tag，而不是共用一个 tag。
+# 在构建机本地执行：按 --sheet 显式指定 profile/sheet，构建镜像、推送 SWR、
+# 将 tag 写入飞书发布表对应 sheet。
 #
 # 使用方式（在构建机上执行）:
-#   tc232:  ./docker/build_image.sh --sheet AMD_with_cuda
-#   tc232:  ./docker/build_image.sh --sheet AMD_with_mxn100
-#   tc192:  ./docker/build_image.sh --sheet l4t
-#   tc81:   ./docker/build_image.sh --sheet ARM_with_cuda
-#   tc81:   ./docker/build_image.sh --sheet ARM_without_cuda
-#   tc81:   ./docker/build_image.sh --sheet thor_spark
-#   一次性多个 sheet:
-#           ./docker/build_image.sh --sheet ARM_with_cuda --sheet ARM_without_cuda \
-#                                   --sheet thor_spark
+#   tc232:  ./docker/build_image.sh --sheet AMD_with_cuda --sheet AMD_with_mxn100
+#   tc81:   ./docker/build_image.sh --sheet ARM_with_cuda --sheet ARM_without_cuda \
+#                                   --sheet l4t --sheet thor_spark
 #
-# profile -> Dockerfile 映射（每个 profile 可独立指定 Dockerfile，
-# 缺失则回退到默认 docker/Dockerfile）:
-#   AMD_with_cuda       -> docker/Dockerfile.amd          (或 docker/Dockerfile)
-#   AMD_with_mxn100     -> docker/Dockerfile.amd_mxn100
-#   ARM_with_cuda       -> docker/Dockerfile.arm
-#   ARM_without_cuda    -> docker/Dockerfile.arm
-#   l4t                 -> docker/Dockerfile.l4t
-#   thor_spark          -> docker/Dockerfile.thor_spark
-#   SOPHON_bm1688       -> docker/Dockerfile.sophon
-#
-# 镜像 tag 格式：<sheet_to_tag>_<YYYYMMDD>，例如 l4t_20260729、thor_spark_20260729。
-# 飞书写入：每个 sheet 一行当天日期，<sheet>!desensitize_backend 列写后端 tag，
-#           <sheet>!desensitize_frontend 列写前端 tag。
+# 飞书表格结构（与 weknora/lexai 一致）:
+#   - 第 1 行：服务名（镜像本名，如 desensitize-backend）
+#   - 第 2 行：组件（镜像仓库地址，如 swr.../ictrek/desensitize-backend）
+#   - 第 3 行：冻结分隔（更新记录）
+#   - 第 4 行起：日期行，每个日期一行，写入当天对应镜像 tag
+#   - 列不存在时向右 append 新列；日期不存在时在 A4 prepend 新行
 # =============================================================================
 
 cd "$(dirname "$0")/.."
@@ -47,10 +28,8 @@ REGISTRY="${REGISTRY:-swr.cn-southwest-2.myhuaweicloud.com/ictrek}"
 
 BACKEND_REPOSITORY="${REGISTRY}/desensitize-backend"
 FRONTEND_REPOSITORY="${REGISTRY}/desensitize-frontend"
-BACKEND_COMPONENT_NAME="desensitize_backend"
-FRONTEND_COMPONENT_NAME="desensitize_frontend"
 
-# sheet -> 镜像 tag 前缀（注意 ARM_with_cuda / ARM_without_cuda 共用同一份 arm 镜像）
+# sheet -> 镜像 tag 前缀
 sheet_to_tag_prefix() {
   case "$1" in
     AMD_with_cuda)    echo "amd" ;;
@@ -109,36 +88,29 @@ Usage: ./docker/build_image.sh --sheet SHEET [--sheet SHEET ...] [options]
 
 Build desensitize images for the specified profile sheets and record tags in Feishu.
 
-Profiles (must match at least one --sheet):
+Profiles:
   AMD:      AMD_with_cuda, AMD_with_mxn100
   ARM:      ARM_with_cuda, ARM_without_cuda, l4t, thor_spark, SOPHON_bm1688
 
 Options:
-  --sheet SHEET            Feishu sheet / profile to build (can be repeated)
-  --component backend      Build only backend image
-  --component frontend     Build only frontend image
+  --sheet SHEET            Feishu sheet / profile (can be repeated)
+  --component backend      Build only backend
+  --component frontend     Build only frontend
   --no-push                Build locally without docker push
-  --no-feishu              Do not update Feishu after push
-  --feishu-only            Do not build or push; only write tags to Feishu
-  --dry-run                Print plan without building, pushing, or writing Feishu
-  --tag TAG                Override the generated tag (default: <sheet>_<YYYYMMDD>)
+  --no-feishu              Do not update Feishu
+  --feishu-only            Only write tags to Feishu (no build/push)
+  --dry-run                Print plan without executing
+  --tag TAG                Override tag (default: <sheet>_<YYYYMMDD>)
   -h, --help               Show this help
 
 Environment:
   FEISHU_CONFIG_FILE       Defaults to ~/.feishu.json
   REGISTRY                 SWR registry prefix
-
-Notes:
-  - Build host must match the profile architecture:
-      AMD_with_cuda / AMD_with_mxn100 -> x86_64 host (e.g. tc232)
-      ARM_with_cuda / ARM_without_cuda / l4t / thor_spark / SOPHON_bm1688 -> aarch64 host (e.g. tc81, tc192)
-  - The script intentionally does not auto-detect architecture because each
-    profile may pull a different base image (pytorch runtime differs).
 EOF
 }
 
 # =============================================================================
-# Feishu helpers (ported from weknora/build_image.sh)
+# Feishu helpers
 # =============================================================================
 
 read_feishu_field() {
@@ -197,11 +169,9 @@ get_sheet_id_by_title() {
   local target_title="$2"
   local resp
 
-  resp=$(
-    feishu_api_json "GET" \
-      "https://open.feishu.cn/open-apis/sheets/v3/spreadsheets/${FEISHU_SPREADSHEET_TOKEN}/sheets/query" \
-      "$token"
-  )
+  resp=$(feishu_api_json "GET" \
+    "https://open.feishu.cn/open-apis/sheets/v3/spreadsheets/${FEISHU_SPREADSHEET_TOKEN}/sheets/query" \
+    "$token")
 
   python3 - "$target_title" "$resp" <<'PY'
 import json, sys
@@ -233,12 +203,10 @@ write_cell() {
   local value="$4"
   local resp
 
-  resp=$(
-    feishu_api_json "PUT" \
-      "https://open.feishu.cn/open-apis/sheets/v2/spreadsheets/${FEISHU_SPREADSHEET_TOKEN}/values" \
-      "$token" \
-      "{\"valueRange\":{\"range\":\"${sheet_id}!${cell}:${cell}\",\"values\":[[\"${value}\"]]}}"
-  )
+  resp=$(feishu_api_json "PUT" \
+    "https://open.feishu.cn/open-apis/sheets/v2/spreadsheets/${FEISHU_SPREADSHEET_TOKEN}/values" \
+    "$token" \
+    "{\"valueRange\":{\"range\":\"${sheet_id}!${cell}:${cell}\",\"values\":[[\"${value}\"]]}}")
 
   python3 - "$resp" <<'PY'
 import json, sys
@@ -263,13 +231,13 @@ PY
 find_or_create_component_column() {
   local token="$1"
   local sheet_id="$2"
-  local component_name="$3"
-  local resp_file result status value meta_resp column_count resp2 cell
+  local service_name="$3"
+  local resp_file
 
   resp_file="$(mktemp)"
   get_range_values "$token" "${sheet_id}!A1:ZZ2" > "$resp_file"
 
-  result=$(python3 - "$component_name" "$resp_file" <<'PY'
+  python3 - "$service_name" "$resp_file" <<'PY'
 import json, sys
 target = sys.argv[1]
 with open(sys.argv[2], "r", encoding="utf-8") as f:
@@ -280,7 +248,7 @@ values = data.get("data", {}).get("valueRange", {}).get("values", [])
 row = values[0] if values else []
 repo_row = values[1] if len(values) > 1 else []
 
-def cell_text(v):
+def text(v):
     if v is None:
         return ""
     if isinstance(v, str):
@@ -288,81 +256,37 @@ def cell_text(v):
     if isinstance(v, dict):
         return str(v.get("text") or v.get("link") or "").strip()
     if isinstance(v, list):
-        return "".join(cell_text(x) for x in v).strip()
+        return "".join(text(x) for x in v).strip()
     return str(v).strip()
+
+def col(n):
+    s = ""
+    while n > 0:
+        n, r = divmod(n - 1, 26)
+        s = chr(ord("A") + r) + s
+    return s
 
 max_len = max(len(row), len(repo_row))
 
+# search entire header range first
 for i in range(2, max_len + 1):
-    header = cell_text(row[i - 1]) if i <= len(row) else ""
-    repo = cell_text(repo_row[i - 1]) if i <= len(repo_row) else ""
+    header = text(row[i - 1]) if i <= len(row) else ""
     if header == target:
-        print(f"FOUND\t{i}")
+        print(col(i))
         raise SystemExit(0)
 
+# find first empty slot after compact block, or append
 for i in range(2, max_len + 2):
-    header = cell_text(row[i - 1]) if i <= len(row) else ""
-    repo = cell_text(repo_row[i - 1]) if i <= len(repo_row) else ""
+    header = text(row[i - 1]) if i <= len(row) else ""
+    repo = text(repo_row[i - 1]) if i <= len(repo_row) else ""
     if not header and not repo:
-        print(f"MISSING\t{i}")
+        print(col(i))
         raise SystemExit(0)
-print(f"MISSING\t{max_len + 1}")
+
+print(col(max_len + 1))
 PY
-  )
+
   rm -f "$resp_file"
-
-  status="${result%%$'\t'*}"
-  value="${result#*$'\t'}"
-
-  if [[ "$status" == "FOUND" ]]; then
-    column_letter "$value"
-    return 0
-  fi
-
-  if [[ "$status" != "MISSING" ]]; then
-    die "find_or_create_component_column: unexpected result: $result"
-  fi
-
-  log "Component column ${component_name} not found, creating at column index ${value}"
-
-  meta_resp=$(feishu_api_json "GET" \
-    "https://open.feishu.cn/open-apis/sheets/v3/spreadsheets/${FEISHU_SPREADSHEET_TOKEN}/sheets/query" \
-    "$token") || die "query sheet metadata failed"
-
-  column_count=$(python3 - "$sheet_id" "$meta_resp" <<'PY'
-import json, sys
-sheet_id, resp = sys.argv[1], sys.argv[2]
-data = json.loads(resp)
-if data.get("code") != 0:
-    raise SystemExit(f"query sheets failed: {data}")
-for sheet in data.get("data", {}).get("sheets", []):
-    if sheet.get("sheet_id") == sheet_id:
-        print(sheet.get("grid_properties", {}).get("column_count", 0))
-        raise SystemExit(0)
-raise SystemExit(f"sheet id not found: {sheet_id}")
-PY
-  )
-
-  if (( value >= column_count )); then
-    resp2=$(feishu_api_json "POST" \
-      "https://open.feishu.cn/open-apis/sheets/v2/spreadsheets/${FEISHU_SPREADSHEET_TOKEN}/dimension_range" \
-      "$token" \
-      "{\"dimension\":{\"sheetId\":\"${sheet_id}\",\"majorDimension\":\"COLUMNS\",\"length\":1}}") || die "append component column failed"
-  else
-    resp2=$(feishu_api_json "POST" \
-      "https://open.feishu.cn/open-apis/sheets/v2/spreadsheets/${FEISHU_SPREADSHEET_TOKEN}/insert_dimension_range" \
-      "$token" \
-      "{\"dimension\":{\"sheetId\":\"${sheet_id}\",\"majorDimension\":\"COLUMNS\",\"startIndex\":${value},\"endIndex\":$((value + 1))},\"inheritStyle\":\"BEFORE\"}") || die "insert component column failed"
-  fi
-
-  python3 - "$resp2" <<'PY'
-import json, sys
-data = json.loads(sys.argv[1])
-if data.get("code") != 0:
-    raise SystemExit(f"add component column failed: {data}")
-PY
-
-  column_letter "$value"
 }
 
 find_date_row() {
@@ -394,12 +318,10 @@ prepend_date_row() {
   local today="$3"
   local resp
 
-  resp=$(
-    feishu_api_json "POST" \
-      "https://open.feishu.cn/open-apis/sheets/v2/spreadsheets/${FEISHU_SPREADSHEET_TOKEN}/values_prepend" \
-      "$token" \
-      "{\"valueRange\":{\"range\":\"${sheet_id}!A4:A4\",\"values\":[[\"${today}\"]]}}"
-  )
+  resp=$(feishu_api_json "POST" \
+    "https://open.feishu.cn/open-apis/sheets/v2/spreadsheets/${FEISHU_SPREADSHEET_TOKEN}/values_prepend" \
+    "$token" \
+    "{\"valueRange\":{\"range\":\"${sheet_id}!A4:A4\",\"values\":[[\"${today}\"]]}}")
 
   python3 - "$resp" <<'PY'
 import json, sys
@@ -413,18 +335,18 @@ update_feishu_cell() {
   local token="$1"
   local sheet_id="$2"
   local sheet_title="$3"
-  local component_name="$4"
+  local service_name="$4"      # e.g. desensitize-backend
   local repo_uri="$5"
   local row="$6"
   local tag="$7"
   local component_col
 
-  component_col="$(find_or_create_component_column "$token" "$sheet_id" "$component_name")"
-  write_cell "$token" "$sheet_id" "${component_col}1" "$component_name"
+  component_col="$(find_or_create_component_column "$token" "$sheet_id" "$service_name")"
+  write_cell "$token" "$sheet_id" "${component_col}1" "$service_name"
   write_cell "$token" "$sheet_id" "${component_col}2" "$repo_uri"
   write_cell "$token" "$sheet_id" "${component_col}${row}" "$tag"
 
-  log "Feishu updated: ${sheet_title}!${component_col}${row} = ${tag} (${component_name})"
+  log "Feishu updated: ${sheet_title}!${component_col}${row} = ${tag} (${service_name})"
 }
 
 # =============================================================================
@@ -432,12 +354,11 @@ update_feishu_cell() {
 # =============================================================================
 
 resolve_dockerfile() {
-  local component="$1"   # backend | frontend
+  local component="$1"
   local sheet="$2"
   local preferred
 
   if [[ "$component" == "frontend" ]]; then
-    # frontend 暂不按 sheet 拆分，复用同一个 Dockerfile
     echo "$DEFAULT_FRONTEND_DOCKERFILE"
     return 0
   fi
@@ -546,10 +467,9 @@ fi
 
 if [[ ${#TARGET_SHEETS[@]} -eq 0 ]]; then
   usage
-  die "at least one --sheet is required (script does not auto-detect architecture because each profile may need a different base image)"
+  die "at least one --sheet is required"
 fi
 
-# 校验 sheet 合法
 for sheet in "${TARGET_SHEETS[@]}"; do
   valid=0
   for v in "${VALID_SHEETS[@]}"; do
@@ -563,7 +483,7 @@ log "Components: backend=${BUILD_BACKEND} frontend=${BUILD_FRONTEND}"
 log "Push: ${PUSH_IMAGES}  Feishu: ${UPDATE_FEISHU}  DryRun: ${DRY_RUN}"
 
 # =============================================================================
-# Build phase: 每个 sheet 单独构建一份镜像（可能 Dockerfile 不同）
+# Build phase
 # =============================================================================
 
 if [[ "$SKIP_BUILD" != "1" ]]; then
@@ -616,12 +536,12 @@ if [[ "$UPDATE_FEISHU" == "1" ]]; then
     if [[ "$BUILD_BACKEND" == "1" ]]; then
       token="$(get_feishu_token "$FEISHU_APP_ID" "$FEISHU_APP_SECRET")"
       update_feishu_cell "$token" "$sheet_id" "$sheet" \
-        "$BACKEND_COMPONENT_NAME" "$BACKEND_REPOSITORY" "$date_row" "$tag"
+        "desensitize-backend" "$BACKEND_REPOSITORY" "$date_row" "$tag"
     fi
     if [[ "$BUILD_FRONTEND" == "1" ]]; then
       token="$(get_feishu_token "$FEISHU_APP_ID" "$FEISHU_APP_SECRET")"
       update_feishu_cell "$token" "$sheet_id" "$sheet" \
-        "$FRONTEND_COMPONENT_NAME" "$FRONTEND_REPOSITORY" "$date_row" "$tag"
+        "desensitize-frontend" "$FRONTEND_REPOSITORY" "$date_row" "$tag"
     fi
   done
 fi

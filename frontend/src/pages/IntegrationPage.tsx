@@ -174,8 +174,9 @@ POST $BASE_URL/api/v1/desensitize/text
   const resp = await fetch(desensitizeUrl, ...);
   // 使用脱敏后的文本
 } catch (e) {
-  // 降级：使用原始文本
-  logger.warn('desensitize service unavailable, using raw text');
+  // 默认阻断云端调用，避免敏感原文外发
+  logger.error('desensitize service unavailable; cloud request blocked', e);
+  throw new Error('desensitize service unavailable');
 }`}</div>
       </div>
     </div>

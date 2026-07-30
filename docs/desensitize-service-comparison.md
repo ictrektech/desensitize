@@ -30,7 +30,7 @@
 
 | 方案 | 形态 | 一句话描述 |
 |------|------|-----------|
-| **A** | 独立 HTTP 微服务（Python/FastAPI） | `modules/desensitize_service/` 提供 `/v1/desensitize` 接口，各应用通过 HTTP 调用 |
+| **A** | 独立 HTTP 微服务（Python/FastAPI） | `apps/desensitize` 提供 `/api/v1/desensitize` 接口，各应用通过 HTTP 调用 |
 | **B** | 共享库/SDK（Go + npm） | 规则引擎打包成 Go module 和 npm package，应用直接引用 |
 | **C** | LLM 网关/Sidecar（统一代理） | 所有云模型流量先经过网关，网关内部完成脱敏后再转发到真实模型端点 |
 | **D** | 规则库 + 可选本地模型增强（混合） | 基础规则用库实现，复杂语义识别通过本地 Ollama/HF NER 模型二次处理 |
@@ -58,7 +58,7 @@
 
 服务内部模块：
 
-- `api.py`：FastAPI 路由（`/v1/desensitize`、`/v1/desensitize/batch`、`/v1/rules`）
+- `app/routers/`：FastAPI 路由（`/api/v1/desensitize`、`/api/v1/desensitize/text`、`/api/v1/rules`）
 - `engine.py`：规则引擎调度器
 - `rules/`：具体规则实现（手机号、身份证、邮箱、API Key、Secret、密码等）
 - `audit.py`：替换日志记录（可对接 Langfuse / 本地文件 / 数据库）
@@ -378,7 +378,7 @@ modules/
 ### 6.2 核心接口定义
 
 ```python
-# POST /v1/desensitize
+# POST /api/v1/desensitize
 class DesensitizeRequest(BaseModel):
     messages: list[ChatMessage]
     options: DesensitizeOptions = DesensitizeOptions()
@@ -459,7 +459,7 @@ if cfg.Desensitize.Enabled && model.Source != "local" {
 export class DesensitizeClient {
   async desensitizeText(text: string, options?: DesensitizeOptions): Promise<string> {
     if (!config.desensitize.enabled) return text;
-    const resp = await fetch(`${config.desensitize.serviceUrl}/v1/desensitize/text`, {
+    const resp = await fetch(`${config.desensitize.serviceUrl}/api/v1/desensitize/text`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ text, options }),
@@ -1232,7 +1232,7 @@ docker stop desensitize_service
 ### 15.1 完整 HTTP API 定义
 
 ```http
-### POST /v1/desensitize
+### POST /api/v1/desensitize
 # 批量脱敏接口（支持多消息多角色）
 Request:
 {
@@ -1282,7 +1282,7 @@ Response:
   }
 }
 
-### POST /v1/desensitize/text
+### POST /api/v1/desensitize/text
 # 单文本快速脱敏（用于 agent-room 等单轮场景）
 Request:
 {
@@ -1296,14 +1296,12 @@ Response:
   "latency_ms": 1.8
 }
 
-### GET /v1/health
+### GET /health
 # 健康检查
 Response:
 {
-  "status": "healthy",
-  "version": "1.0.0",
-  "active_rules": 12,
-  "last_updated": "2026-07-27T10:00:00Z"
+  "status": "ok",
+  "service": "ictrek-desensitize"
 }
 ```
 

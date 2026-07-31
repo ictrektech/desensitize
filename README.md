@@ -144,6 +144,7 @@ NER 是显式开关，历史 API 不传 `ner` 时仍是纯正则。启动后服�
 `MODEL_HUB_SHARED_MODELS_PATH`（默认 `/data/vos_workspace/model_hub`）。容器只读挂载整个
 目录到 `/modelhub`，从标准 ModelScope 导出路径加载模型。文本接口传 `{"ner": true}`，
 批量接口在 `options` 中传 `{"ner": true}`；模型下载过程不阻塞启动，未就绪时仅 NER 请求返回“模型下载中，请稍后”，纯规则请求仍可用。
+NER 默认最多并发执行 4 个推理；超过时在安装参数 `DESENSITIZE_NER_QUEUE_TIMEOUT_SECONDS` 指定的时间内排队等待（默认 30 秒），超时才返回繁忙提示。
 
 ## 内置规则
 

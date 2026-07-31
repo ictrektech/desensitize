@@ -40,3 +40,27 @@ configs:
       zh-CN: 启用后，可在 API 请求中传入 ner=true 识别人名和地址；未安装 Model Hub 模型时，纯规则 API 仍可正常使用。
       en: Enables person and location detection when requests set ner=true. Regex-only API calls remain available if the Model Hub model is absent.
     default: true
+
+  - name: DESENSITIZE_NER_MAX_CONCURRENCY
+    type: integer
+    title:
+      zh-CN: NER 最大并发数
+      en: NER Maximum Concurrency
+    description:
+      zh-CN: 同时执行的 NER 推理数量。超出的请求会进入有界等待队列；GPU 默认建议使用 4。
+      en: Number of simultaneous NER inferences. Excess requests wait in a bounded queue; 4 is the recommended GPU default.
+    default: 4
+    minimum: 1
+    maximum: 16
+
+  - name: DESENSITIZE_NER_QUEUE_TIMEOUT_SECONDS
+    type: integer
+    title:
+      zh-CN: NER 队列等待秒数
+      en: NER Queue Wait Timeout
+    description:
+      zh-CN: NER 并发已满时的最长等待时间；超过后请求返回“NER 队列繁忙，请稍后”。
+      en: Maximum wait while NER concurrency is full. Requests return a busy response after this timeout.
+    default: 30
+    minimum: 0
+    maximum: 300

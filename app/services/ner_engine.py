@@ -29,7 +29,9 @@ class NerEngine:
         self.poll_seconds = max(2, int(os.getenv("DESENSITIZE_NER_MODEL_POLL_SECONDS", "10")))
         self.max_tokens = int(os.getenv("DESENSITIZE_NER_MAX_TOKENS", "512"))
         self.min_confidence = float(os.getenv("DESENSITIZE_NER_MIN_CONFIDENCE", "0.85"))
-        self._semaphore = threading.BoundedSemaphore(int(os.getenv("DESENSITIZE_NER_MAX_CONCURRENCY", "1")))
+        self.max_concurrency = max(1, int(os.getenv("DESENSITIZE_NER_MAX_CONCURRENCY", "4")))
+        self.queue_timeout_seconds = max(0, float(os.getenv("DESENSITIZE_NER_QUEUE_TIMEOUT_SECONDS", "30")))
+        self._semaphore = threading.BoundedSemaphore(self.max_concurrency)
         self._session = None
         self._tokenizer = None
         self._input_names: set[str] = set()
@@ -135,8 +137,8 @@ class NerEngine:
             if self._state in {"checking", "downloading"}:
                 raise NerUnavailable("模型下载中，请稍后")
             raise NerUnavailable(self._error or "NER is unavailable")
-        if not self._semaphore.acquire(blocking=False):
-            raise NerUnavailable("NER is busy")
+        if not self._semaphore.acquire(timeout=self.queue_timeout_seconds):
+            raise NerUnavailable("NER 队列繁忙，请稍后")
         try:
             import numpy as np
             encoded = self._tokenizer(text, return_offsets_mapping=True, truncation=True, max_length=self.max_tokens, return_tensors="np")

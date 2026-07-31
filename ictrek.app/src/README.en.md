@@ -41,6 +41,10 @@ in progress, and NER requests return 503 with a retry message. Add `"ner": true`
 to batch `options`, to additionally redact person and location entities. If the
 Model Hub model is unavailable, only NER requests return 503.
 
+`DESENSITIZE_NER_MAX_CONCURRENCY` is exposed at installation time and defaults to
+4. Requests beyond that limit wait up to `DESENSITIZE_NER_QUEUE_TIMEOUT_SECONDS`
+(default 30 seconds) before receiving a busy response.
+
 ## API Endpoints
 
 | Endpoint | Method | Description |

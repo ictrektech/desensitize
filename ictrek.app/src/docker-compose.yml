@@ -33,7 +33,8 @@ x-desensitize-backend-env: &desensitize-backend-env
   DESENSITIZE_NER_MODEL_DIR: /modelhub/export/ms/huluxiaohuowa/bert4ner-base-chinese-onnx/current
   MODEL_HUB_API_URL: ${MODEL_HUB_API_URL:-http://model-hub-backend:5005}
   DESENSITIZE_NER_PROVIDER: cpu
-  DESENSITIZE_NER_MAX_CONCURRENCY: ${DESENSITIZE_NER_MAX_CONCURRENCY:-1}
+  DESENSITIZE_NER_MAX_CONCURRENCY: ${DESENSITIZE_NER_MAX_CONCURRENCY:-4}
+  DESENSITIZE_NER_QUEUE_TIMEOUT_SECONDS: ${DESENSITIZE_NER_QUEUE_TIMEOUT_SECONDS:-30}
   DESENSITIZE_NER_INTRA_OP_THREADS: ${DESENSITIZE_NER_INTRA_OP_THREADS:-4}
 
 x-desensitize-backend-base: &desensitize-backend-base

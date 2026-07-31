@@ -17,7 +17,6 @@
 
 | 参数 | 默认值 | 说明 |
 | --- | --- | --- |
-| `DESENSITIZE_HOST_PORT` | `35010` | 脱敏服务后端 API 映射到宿主机的调试端口 |
 | `DESENSITIZE_DATA_PATH` | `/data/vos_workspace/desensitize` | 持久化数据目录（存储自定义规则） |
 | `MODEL_HUB_SHARED_MODELS_PATH` | `/data/vos_workspace/model_hub` | Model Hub 共享模型根目录；后端会将总目录只读挂载为 `/modelhub` |
 | `DESENSITIZE_NER_ENABLED` | `true` | 是否允许请求通过 `ner=true` 启用语义脱敏 |
@@ -71,9 +70,8 @@ NER 最大并发数和队列等待时间可在安装界面分别通过
 | --- | --- |
 | 同一 VOS 实例的应用 | `http://desensitize-backend:5000`（调用方必须加入外部 `vos_default` 网络） |
 | VOS 内部网关 | `http://${VOS_HOST_GW_IP}:${VOS_API_GW_PORT_INTERNAL}/api/com.ictrek.desensitize` |
-| 宿主机调试端口 | `http://<vos-host>:35010`（仅限受控外部访问） |
 
-三种地址都是 API 基地址；请求单文本脱敏时追加
+两种地址都是 API 基地址；请求单文本脱敏时追加
 `/api/v1/desensitize/text`。网关路径会由 Traefik 移除
 `/api/com.ictrek.desensitize` 前缀后再转发。
 

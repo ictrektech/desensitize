@@ -30,12 +30,6 @@ POST $BASE_URL/api/v1/desensitize/text`}</div>
 POST $BASE_URL/api/v1/desensitize/text`}</div>
         </div>
 
-        <div className="integration-section">
-          <h3>方式 3: 宿主机端口</h3>
-          <p>仅用于宿主机调试或已受网络访问控制的外部调用；端口可在安装时修改：</p>
-          <div className="code-block">{`BASE_URL=http://<vos-host>:35010
-POST $BASE_URL/api/v1/desensitize/text`}</div>
-        </div>
       </div>
 
       <div className="card">

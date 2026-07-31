@@ -47,8 +47,6 @@ x-desensitize-backend-base: &desensitize-backend-base
   volumes:
     - ${DESENSITIZE_DATA_PATH:-/data/vos_workspace/desensitize}:/data
     - ${MODEL_HUB_SHARED_MODELS_PATH:-/data/vos_workspace/model_hub}:/modelhub:ro
-  ports:
-    - "${DESENSITIZE_HOST_PORT:-35010}:5000"
   labels:
     - "traefik.enable=true"
     - "traefik.docker.network=vos_default"

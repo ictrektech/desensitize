@@ -70,14 +70,14 @@ npm run dev
 
 ### 构建镜像
 
-后端每次构建只对应一个 VOS profile，并只写入该 profile 的 Feishu sheet；前端不含 NER/ORT，始终只构建 AMD、ARM 两种镜像，并将同一个架构 tag 一对多写入对应 profile 表。打包从每个 profile 自己的表取镜像。CPU 后端 tag 为 `<platform>_<YYYYMMDD>`，CUDA 后端 tag 带 CUDA 版本后缀：
+后端每次构建只对应一个 VOS profile，并只写入该 profile 的 Feishu sheet；前端不含 NER/ORT，始终只构建 AMD、ARM 两种镜像，并将同一个架构 tag 一对多写入对应 profile 表。打包从每个 profile 自己的表取镜像。CPU 后端 tag 为 `<platform>_<YYYYMMDD>`，AMD/ARM/Thor CUDA 后端 tag 带 CUDA 版本后缀；L4T 按 Jetson profile 命名为 `l4t_<YYYYMMDD>`：
 
 | 构建机 | 参数 | 写入 sheet | tag 示例 |
 | --- | --- | --- | --- |
 | tc232 | `--sheet AMD_with_cuda` | `AMD_with_cuda`（后端） | `amd_cu128_20260731` |
 | tc232 | `--sheet AMD_with_mxn100` | `AMD_with_mxn100` | `amd_20260731` |
 | tc192 | `--sheet ARM_without_cuda` | `ARM_without_cuda` | `arm_20260731` |
-| tc192 | `--sheet l4t` | `l4t` | `l4t_cu128_20260731` |
+| tc192 | `--sheet l4t` | `l4t` | `l4t_20260731` |
 | tc81 | `--sheet ARM_with_cuda` | `ARM_with_cuda` | `arm_cu128_20260731` |
 | tc81 | `--sheet thor_spark` | `thor_spark`（后端） | `thor_cu128_20260731` |
 | tc232 | `--frontend-platform amd` | `AMD_with_cuda`、`AMD_with_mxn100`（前端） | `amd_20260731` |

@@ -36,7 +36,7 @@ profile_spec() {
     AMD_with_mxn100) printf '%s|%s|%s\n' amd-without-cuda amd docker/Dockerfile.cpu ;;
     ARM_with_cuda)  printf '%s|%s|%s\n' arm arm_cu128 docker/Dockerfile.arm-cuda ;;
     ARM_without_cuda) printf '%s|%s|%s\n' arm-without-cuda arm docker/Dockerfile.cpu ;;
-    l4t)            printf '%s|%s|%s\n' l4t l4t_cu128 docker/Dockerfile.l4t ;;
+    l4t)            printf '%s|%s|%s\n' l4t l4t docker/Dockerfile.l4t ;;
     thor_spark)     printf '%s|%s|%s\n' thor-spark thor_cu128 docker/Dockerfile.thor ;;
     *) return 1 ;;
   esac

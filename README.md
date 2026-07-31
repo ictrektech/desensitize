@@ -70,22 +70,33 @@ npm run dev
 
 ### 构建镜像
 
-每次构建只对应一个 VOS profile，并只写入该 profile 的 Feishu sheet；打包也从同一张表取镜像。CPU tag 为 `<platform>_<YYYYMMDD>`，CUDA tag 带 CUDA 版本后缀：
+后端每次构建只对应一个 VOS profile，并只写入该 profile 的 Feishu sheet；前端不含 NER/ORT，始终只构建 AMD、ARM 两种镜像，并将同一个架构 tag 一对多写入对应 profile 表。打包从每个 profile 自己的表取镜像。CPU 后端 tag 为 `<platform>_<YYYYMMDD>`，CUDA 后端 tag 带 CUDA 版本后缀：
 
 | 构建机 | 参数 | 写入 sheet | tag 示例 |
 | --- | --- | --- | --- |
-| tc232 | `--sheet AMD_with_cuda` | `AMD_with_cuda` | `amd_cu128_20260731` |
+| tc232 | `--sheet AMD_with_cuda` | `AMD_with_cuda`（后端） | `amd_cu128_20260731` |
 | tc232 | `--sheet AMD_with_mxn100` | `AMD_with_mxn100` | `amd_20260731` |
 | tc192 | `--sheet ARM_without_cuda` | `ARM_without_cuda` | `arm_20260731` |
 | tc192 | `--sheet l4t` | `l4t` | `l4t_cu128_20260731` |
 | tc81 | `--sheet ARM_with_cuda` | `ARM_with_cuda` | `arm_cu128_20260731` |
-| tc81 | `--sheet thor_spark` | `thor_spark` | `thor_cu128_20260731` |
+| tc81 | `--sheet thor_spark` | `thor_spark`（后端） | `thor_cu128_20260731` |
+| tc232 | `--frontend-platform amd` | `AMD_with_cuda`、`AMD_with_mxn100`（前端） | `amd_20260731` |
+| tc192 | `--frontend-platform arm` | `ARM_with_cuda`、`ARM_without_cuda`、`l4t`、`thor_spark`（前端） | `arm_20260731` |
 
 ```bash
 cd apps/desensitize
 
-# 例：AMD CUDA；每个 profile 分别执行一次
+# 六个 profile 后端分别执行
 ./docker/build_image.sh --sheet AMD_with_cuda
+./docker/build_image.sh --sheet AMD_with_mxn100
+./docker/build_image.sh --sheet ARM_with_cuda
+./docker/build_image.sh --sheet ARM_without_cuda
+./docker/build_image.sh --sheet l4t
+./docker/build_image.sh --sheet thor_spark
+
+# 前端只构建两次，再按架构一对多写入 Feishu
+./docker/build_image.sh --frontend-platform amd
+./docker/build_image.sh --frontend-platform arm
 ```
 
 不要跨 profile 写表，也不要使用任意功能后缀。**打包脚本不会跨 sheet 查找镜像**：
@@ -94,8 +105,8 @@ cd apps/desensitize
 只重建单个组件时：
 
 ```bash
-./docker/build_image.sh --sheet ARM_with_cuda --component frontend
 ./docker/build_image.sh --sheet AMD_with_cuda --component backend
+./docker/build_image.sh --frontend-platform arm
 ```
 
 ### VOS 打包
@@ -127,11 +138,12 @@ ictrek.app/scripts/update_version.sh patch
 
 ## 可选 NER（Model Hub）
 
-NER 是显式开关，历史 API 不传 `ner` 时仍是纯正则。先在 Model Hub 安装
-`huluxiaohuowa/bert4ner-base-chinese-onnx`，安装本应用时设置
+NER 是显式开关，历史 API 不传 `ner` 时仍是纯正则。启动后服务通过 VOS alias
+`model-hub-backend:5005` 查询 Model Hub，模型不存在时自动请求下载
+`huluxiaohuowa/bert4ner-base-chinese-onnx`。安装本应用时设置
 `MODEL_HUB_SHARED_MODELS_PATH`（默认 `/data/vos_workspace/model_hub`）。容器只读挂载整个
 目录到 `/modelhub`，从标准 ModelScope 导出路径加载模型。文本接口传 `{"ner": true}`，
-批量接口在 `options` 中传 `{"ner": true}`；模型未就绪只影响 NER 请求，纯规则请求仍可用。
+批量接口在 `options` 中传 `{"ner": true}`；模型下载过程不阻塞启动，未就绪时仅 NER 请求返回“模型下载中，请稍后”，纯规则请求仍可用。
 
 ## 内置规则
 

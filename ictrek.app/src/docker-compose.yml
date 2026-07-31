@@ -31,6 +31,7 @@ x-desensitize-backend-env: &desensitize-backend-env
   # Model Hub owns the model lifecycle. This app only consumes its read-only export.
   DESENSITIZE_NER_ENABLED: ${DESENSITIZE_NER_ENABLED:-true}
   DESENSITIZE_NER_MODEL_DIR: /modelhub/export/ms/huluxiaohuowa/bert4ner-base-chinese-onnx/current
+  MODEL_HUB_API_URL: ${MODEL_HUB_API_URL:-http://model-hub-backend:5005}
   DESENSITIZE_NER_PROVIDER: cpu
   DESENSITIZE_NER_MAX_CONCURRENCY: ${DESENSITIZE_NER_MAX_CONCURRENCY:-1}
   DESENSITIZE_NER_INTRA_OP_THREADS: ${DESENSITIZE_NER_INTRA_OP_THREADS:-4}

@@ -40,12 +40,12 @@ POST $BASE_URL/api/v1/desensitize/text`}</div>
 
       <div className="card">
         <div className="card-title">NER 模型依赖</div>
-        <p>NER 不随脱敏镜像发布。请先在 Model Hub 安装 ModelScope 模型 <code>huluxiaohuowa/bert4ner-base-chinese-onnx</code>；安装参数中的 Model Hub 共享目录默认是 <code>/data/vos_workspace/model_hub</code>，后端会将该总目录只读挂载为 <code>/modelhub</code>。</p>
+        <p>NER 不随脱敏镜像发布。启动后后端会通过 VOS alias <code>model-hub-backend:5005</code> 查询并自动请求 Model Hub 下载 ModelScope 模型 <code>huluxiaohuowa/bert4ner-base-chinese-onnx</code>；安装参数中的 Model Hub 共享目录默认是 <code>/data/vos_workspace/model_hub</code>，后端会将该总目录只读挂载为 <code>/modelhub</code>。</p>
         <div className="code-block">{`容器内模型路径：
 /modelhub/export/ms/huluxiaohuowa/bert4ner-base-chinese-onnx/current
 
-未安装模型时：不传 ner 或传 ner=false 的纯规则 API 完全可用；
-传 ner=true 会返回 503，调用方应提示管理员在 Model Hub 安装模型。`}</div>
+模型下载中：不传 ner 或传 ner=false 的纯规则 API 完全可用；
+传 ner=true 会返回 503：“模型下载中，请稍后”。`}</div>
       </div>
 
       <div className="card">

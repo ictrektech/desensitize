@@ -50,10 +50,12 @@ VOS 内部 iframe 页面入口为：
 
 ### NER 模型（Model Hub 依赖）
 
-NER 权重不包含在本应用镜像中。先在 Model Hub 安装 ModelScope 模型
-`huluxiaohuowa/bert4ner-base-chinese-onnx`；本服务从只读挂载的
+NER 权重不包含在本应用镜像中。启动后服务会通过 VOS 网络 alias
+`model-hub-backend:5005` 查询 Model Hub；模型不存在或下载失败时会自动触发 ModelScope
+模型 `huluxiaohuowa/bert4ner-base-chinese-onnx` 的下载。本服务从只读挂载的
 `/modelhub/export/ms/huluxiaohuowa/bert4ner-base-chinese-onnx/current` 加载它。
-未安装该模型时，原有正则 API 不受影响；只有请求传入 `ner=true` 才会返回 503 并提示安装模型。
+该过程不阻塞服务启动：原有正则 API 始终可用；模型下载中时只有 `ner=true` 请求返回 503
+及“模型下载中，请稍后”。
 
 ### 接入指南
 

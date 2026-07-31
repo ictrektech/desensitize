@@ -4,7 +4,8 @@ set -euo pipefail
 # =============================================================================
 # desensitize build/push script
 # =============================================================================
-# 在构建机本地执行：按一个明确的 VOS profile 构建、推送并只写入该 profile 的飞书表。
+# 后端按一个明确的 VOS profile 构建并只写入该 profile 的表；前端只分 AMD/ARM 构建，
+# 再将同一 frontend tag 写入该架构的所有 VOS profile 表。
 #
 # 使用方式（在构建机上执行）:
 #   tc232:  ./docker/build_image.sh --sheet AMD_with_cuda
@@ -41,6 +42,14 @@ profile_spec() {
   esac
 }
 
+frontend_sheets() {
+  case "$1" in
+    amd) printf '%s\n' AMD_with_cuda AMD_with_mxn100 ;;
+    arm) printf '%s\n' ARM_with_cuda ARM_without_cuda l4t thor_spark ;;
+    *) return 1 ;;
+  esac
+}
+
 DEFAULT_BACKEND_DOCKERFILE="docker/Dockerfile"
 DEFAULT_FRONTEND_DOCKERFILE="frontend/Dockerfile"
 
@@ -56,9 +65,11 @@ SKIP_BUILD=0
 BUILD_ENGINE="${DESENSITIZE_BUILD_ENGINE:-auto}"
 
 TARGET_SHEET=""
+FRONTEND_PLATFORM=""
 PROFILE_NAME=""
 TAG_PREFIX=""
 BACKEND_DOCKERFILE=""
+COMPONENT_REQUESTED=0
 
 log() { echo "[INFO] $*"; }
 err() { echo "[ERROR] $*" >&2; }
@@ -98,16 +109,18 @@ docker_build_image() {
 
 usage() {
   cat <<'EOF'
-Usage: ./docker/build_image.sh --sheet SHEET [options]
+Usage: ./docker/build_image.sh (--sheet SHEET | --frontend-platform amd|arm) [options]
 
-Build one desensitize image pair for exactly one VOS profile and record it only
-in that profile's Feishu sheet. Packages resolve each profile from the same sheet.
+`--sheet` builds a profile-specific backend and writes only that sheet.
+`--frontend-platform` builds one AMD/ARM frontend and writes it to every matching
+profile sheet. Packages still resolve each profile from its own sheet.
 
 Sheets:
   AMD_with_cuda, AMD_with_mxn100, ARM_with_cuda, ARM_without_cuda, l4t, thor_spark
 
 Options:
   --sheet SHEET            Exact Feishu profile sheet to build and update
+  --frontend-platform ARCH Build frontend once for amd or arm and fan out its tag to matching sheets
   --component backend      Build only backend
   --component frontend     Build only frontend
   --no-push                Build locally without docker push
@@ -405,8 +418,13 @@ build_and_push() {
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --sheet)
-      [[ -z "$TARGET_SHEET" ]] || die "--sheet may only be set once"
+      [[ -z "$TARGET_SHEET" && -z "$FRONTEND_PLATFORM" ]] || die "choose exactly one build target"
       TARGET_SHEET="$2"
+      shift 2
+      ;;
+    --frontend-platform)
+      [[ -z "$TARGET_SHEET" && -z "$FRONTEND_PLATFORM" ]] || die "choose exactly one build target"
+      FRONTEND_PLATFORM="$2"
       shift 2
       ;;
     --component)
@@ -415,6 +433,7 @@ while [[ $# -gt 0 ]]; do
         frontend) BUILD_BACKEND=0; BUILD_FRONTEND=1 ;;
         *) die "unsupported component: $2" ;;
       esac
+      COMPONENT_REQUESTED=1
       shift 2
       ;;
     --no-push)
@@ -460,14 +479,27 @@ if [[ "$UPDATE_FEISHU" == "1" ]]; then
   require_cmd curl
 fi
 
-if [[ -z "$TARGET_SHEET" ]]; then
+if [[ -z "$TARGET_SHEET" && -z "$FRONTEND_PLATFORM" ]]; then
   usage
-  die "--sheet is required"
+  die "--sheet or --frontend-platform is required"
 fi
-IFS='|' read -r PROFILE_NAME TAG_PREFIX BACKEND_DOCKERFILE <<< "$(profile_spec "$TARGET_SHEET")" \
-  || die "unknown sheet: ${TARGET_SHEET}"
-
-log "Profile: ${PROFILE_NAME} (${TARGET_SHEET})"
+if [[ -n "$TARGET_SHEET" ]]; then
+  IFS='|' read -r PROFILE_NAME TAG_PREFIX BACKEND_DOCKERFILE <<< "$(profile_spec "$TARGET_SHEET")" \
+    || die "unknown sheet: ${TARGET_SHEET}"
+  if [[ "$COMPONENT_REQUESTED" == "0" ]]; then
+    BUILD_BACKEND=1
+    BUILD_FRONTEND=0
+  fi
+  [[ "$BUILD_FRONTEND" == "0" ]] || die "frontend is architecture-shared; use --frontend-platform amd|arm"
+  log "Backend profile: ${PROFILE_NAME} (${TARGET_SHEET})"
+else
+  [[ "$FRONTEND_PLATFORM" == "amd" || "$FRONTEND_PLATFORM" == "arm" ]] || die "--frontend-platform must be amd or arm"
+  [[ "$COMPONENT_REQUESTED" == "0" || "$BUILD_FRONTEND" == "1" ]] || die "--frontend-platform only builds frontend"
+  BUILD_BACKEND=0
+  BUILD_FRONTEND=1
+  TAG_PREFIX="$FRONTEND_PLATFORM"
+  log "Frontend platform: ${FRONTEND_PLATFORM}"
+fi
 log "Components: backend=${BUILD_BACKEND} frontend=${BUILD_FRONTEND}"
 log "Push: ${PUSH_IMAGES}  Feishu: ${UPDATE_FEISHU}  DryRun: ${DRY_RUN}"
 
@@ -483,7 +515,7 @@ if [[ "$SKIP_BUILD" != "1" ]]; then
     build_and_push "$PROFILE_NAME" "backend" "$BACKEND_DOCKERFILE"
   fi
   if [[ "$BUILD_FRONTEND" == "1" ]]; then
-    build_and_push "$PROFILE_NAME" "frontend" "$DEFAULT_FRONTEND_DOCKERFILE"
+    build_and_push "${FRONTEND_PLATFORM:-$PROFILE_NAME}" "frontend" "$DEFAULT_FRONTEND_DOCKERFILE"
   fi
 fi
 
@@ -498,7 +530,12 @@ if [[ "$UPDATE_FEISHU" == "1" ]]; then
   FEISHU_APP_SECRET="$(read_feishu_field "feishu_app_secret")"
   [[ -n "$FEISHU_APP_ID" && -n "$FEISHU_APP_SECRET" ]] || die "feishu_app_id or feishu_app_secret missing in $FEISHU_CONFIG_FILE"
 
-  for sheet in "$TARGET_SHEET"; do
+  if [[ -n "$FRONTEND_PLATFORM" ]]; then
+    mapfile -t WRITE_SHEETS < <(frontend_sheets "$FRONTEND_PLATFORM")
+  else
+    WRITE_SHEETS=("$TARGET_SHEET")
+  fi
+  for sheet in "${WRITE_SHEETS[@]}"; do
     tag="${TAG_PREFIX}_${TAG_OVERRIDE:-$TODAY}"
 
     token="$(get_feishu_token "$FEISHU_APP_ID" "$FEISHU_APP_SECRET")"

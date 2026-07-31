@@ -65,7 +65,7 @@ NER 返回值仍应转换为既有命中记录结构。建议初始映射：
 
 1. 新建 `NerEngine`，仅负责分段、tokenize、ONNX 推理、BIO 合并和坐标映射。
 2. `DesensitizeEngine` 保持规则为第一阶段；NER 只能处理规则未占用的字符区间。
-3. 模型由 Model Hub 下载、校验和原子导出；服务只读挂载整个 `${MODEL_HUB_SHARED_MODELS_PATH:-/data/vos_workspace/model_hub}` 到 `/modelhub`，读取 `/modelhub/export/ms/huluxiaohuowa/bert4ner-base-chinese-onnx/current`。镜像不包含权重，也禁止运行时联网下载。
+3. 模型由 Model Hub 下载、校验和原子导出；服务启动后经 VOS alias `model-hub-backend:5005` 查询模型状态，不存在时调用 Model Hub 的 pull API。该后台流程不阻塞规则服务启动；NER 请求在下载期间返回“模型下载中，请稍后”。服务只读挂载整个 `${MODEL_HUB_SHARED_MODELS_PATH:-/data/vos_workspace/model_hub}` 到 `/modelhub`，读取 `/modelhub/export/ms/huluxiaohuowa/bert4ner-base-chinese-onnx/current`。镜像不包含权重，也禁止运行时联网下载。
 4. 单请求按 tokenizer 的 512 token 上限切块，并保留重叠窗口；合并时以原始字符串字符坐标去重。
 5. 模型加载失败时：`rules` 请求正常完成；`hybrid` 返回明确的 `ner_unavailable` 状态，**不得假装已做语义脱敏**。
 

@@ -81,7 +81,8 @@ services:
     image: ${DESENSITIZE_FRONTEND_AMD_IMAGE}
     pull_policy: always
     depends_on:
-      - desensitize-backend-amd
+      desensitize-backend-amd:
+        condition: service_healthy
 
   desensitize-backend-amd:
     <<: *desensitize-backend-gpu-base
@@ -96,7 +97,8 @@ services:
     image: ${DESENSITIZE_FRONTEND_AMD_WITHOUT_CUDA_IMAGE}
     pull_policy: always
     depends_on:
-      - desensitize-backend-amd-without-cuda
+      desensitize-backend-amd-without-cuda:
+        condition: service_healthy
 
   desensitize-backend-amd-without-cuda:
     <<: *desensitize-backend-base
@@ -111,7 +113,8 @@ services:
     image: ${DESENSITIZE_FRONTEND_ARM_IMAGE}
     pull_policy: always
     depends_on:
-      - desensitize-backend-arm
+      desensitize-backend-arm:
+        condition: service_healthy
 
   desensitize-backend-arm:
     <<: *desensitize-backend-gpu-base
@@ -126,7 +129,8 @@ services:
     image: ${DESENSITIZE_FRONTEND_ARM_WITHOUT_CUDA_IMAGE}
     pull_policy: always
     depends_on:
-      - desensitize-backend-arm-without-cuda
+      desensitize-backend-arm-without-cuda:
+        condition: service_healthy
 
   desensitize-backend-arm-without-cuda:
     <<: *desensitize-backend-base
@@ -141,7 +145,8 @@ services:
     image: ${DESENSITIZE_FRONTEND_L4T_IMAGE}
     pull_policy: always
     depends_on:
-      - desensitize-backend-l4t
+      desensitize-backend-l4t:
+        condition: service_healthy
 
   desensitize-backend-l4t:
     <<: *desensitize-backend-gpu-base
@@ -156,7 +161,8 @@ services:
     image: ${DESENSITIZE_FRONTEND_THOR_SPARK_IMAGE}
     pull_policy: always
     depends_on:
-      - desensitize-backend-thor-spark
+      desensitize-backend-thor-spark:
+        condition: service_healthy
 
   desensitize-backend-thor-spark:
     <<: *desensitize-backend-gpu-base

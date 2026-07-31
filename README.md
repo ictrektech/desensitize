@@ -14,7 +14,8 @@ apps/desensitize/
 │   │   ├── rules.py        # 规则管理 CRUD
 │   │   └── desensitize.py  # 脱敏 API
 │   └── services/           # 核心服务
-│       ├── engine.py       # 脱敏引擎（正则匹配 + 中文数字归一化）
+│       ├── engine.py       # 脱敏引擎（正则 + 可选 NER）
+│       ├── ner_engine.py   # 复用单个 ONNX Runtime NER 会话
 │       └── rule_store.py   # 规则存储（内置 + 自定义）
 ├── frontend/               # React + Vite 前端
 │   ├── src/
@@ -28,7 +29,7 @@ apps/desensitize/
 │   ├── nginx.conf
 │   └── package.json
 ├── docker/
-│   ├── Dockerfile          # 后端镜像
+│   ├── Dockerfile.cpu / Dockerfile.* # 各 profile 后端镜像
 │   └── build_image.sh      # 构建推送脚本
 ├── ictrek.app/             # VOS 应用打包
 │   ├── VERSION
@@ -69,34 +70,32 @@ npm run dev
 
 ### 构建镜像
 
-镜像构建只区分两种通用架构，tag 固定为 `<platform>_<YYYYMMDD>`：
+每次构建只对应一个 VOS profile，并只写入该 profile 的 Feishu sheet；打包也从同一张表取镜像。CPU tag 为 `<platform>_<YYYYMMDD>`，CUDA tag 带 CUDA 版本后缀：
 
-| 构建参数 | 构建机 | 镜像 tag | 同步写入的飞书 sheet |
+| 构建机 | 参数 | 写入 sheet | tag 示例 |
 | --- | --- | --- | --- |
-| `--platform amd` | `tc232` | `amd_20260729` | `AMD_with_cuda`、`AMD_with_mxn100` |
-| `--platform arm` | `tc81` | `arm_20260729` | `ARM_with_cuda`、`ARM_without_cuda`、`l4t`、`thor_spark` |
+| tc232 | `--sheet AMD_with_cuda` | `AMD_with_cuda` | `amd_cu128_20260731` |
+| tc232 | `--sheet AMD_with_mxn100` | `AMD_with_mxn100` | `amd_20260731` |
+| tc192 | `--sheet ARM_without_cuda` | `ARM_without_cuda` | `arm_20260731` |
+| tc192 | `--sheet l4t` | `l4t` | `l4t_cu128_20260731` |
+| tc81 | `--sheet ARM_with_cuda` | `ARM_with_cuda` | `arm_cu128_20260731` |
+| tc81 | `--sheet thor_spark` | `thor_spark` | `thor_cu128_20260731` |
 
 ```bash
 cd apps/desensitize
 
-# AMD64：构建一次 backend + frontend，推送后写入全部 AMD sheet
-./docker/build_image.sh --platform amd
-
-# ARM64：构建一次 backend + frontend，推送后写入全部 ARM sheet
-./docker/build_image.sh --platform arm
+# 例：AMD CUDA；每个 profile 分别执行一次
+./docker/build_image.sh --sheet AMD_with_cuda
 ```
 
-不要使用 `--sheet` 或自定义功能后缀 tag。当前各 ARM / AMD profile 共用通用镜像；
-未来某个 profile 需要 CUDA、PyTorch 或设备专用运行时，再在构建脚本中为该 profile
-增加专用构建映射。SOPHON 不是当前 VOS 包支持的 profile，待专用镜像接入时单独配置。
-**打包脚本不会跨 sheet 查找镜像**：`l4t` 始终从 `l4t` sheet 读，
-`arm` 始终从 `ARM_with_cuda` sheet 读，等专用镜像出现后无需修改打包逻辑。
+不要跨 profile 写表，也不要使用任意功能后缀。**打包脚本不会跨 sheet 查找镜像**：
+每个 profile 都只读取自己的表和该列第 2 行记录的镜像仓库。
 
 只重建单个组件时：
 
 ```bash
-./docker/build_image.sh --platform arm --component frontend
-./docker/build_image.sh --platform amd --component backend
+./docker/build_image.sh --sheet ARM_with_cuda --component frontend
+./docker/build_image.sh --sheet AMD_with_cuda --component backend
 ```
 
 ### VOS 打包
@@ -122,9 +121,17 @@ ictrek.app/scripts/update_version.sh patch
 架构选型、调用方接入和后续语义脱敏演进见
 [docs/desensitize-service-comparison.md](docs/desensitize-service-comparison.md)。
 
-完整发布顺序：先在 tc232/tc81 构建并确认两个平台镜像已写入全部对应 sheet；再提交
+完整发布顺序：先在对应构建机逐个 profile 构建并确认镜像已写入其对应 sheet；再提交
 代码，运行 `update_version.sh patch`。CI 只负责从每个 profile 自己的 sheet 读取 tag、
 生成 pull 模式 VOS 包和发布应用商店，不重新构建镜像。
+
+## 可选 NER（Model Hub）
+
+NER 是显式开关，历史 API 不传 `ner` 时仍是纯正则。先在 Model Hub 安装
+`huluxiaohuowa/bert4ner-base-chinese-onnx`，安装本应用时设置
+`MODEL_HUB_SHARED_MODELS_PATH`（默认 `/data/vos_workspace/model_hub`）。容器只读挂载整个
+目录到 `/modelhub`，从标准 ModelScope 导出路径加载模型。文本接口传 `{"ner": true}`，
+批量接口在 `options` 中传 `{"ner": true}`；模型未就绪只影响 NER 请求，纯规则请求仍可用。
 
 ## 内置规则
 

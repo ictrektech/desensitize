@@ -13,6 +13,8 @@ import time
 import logging
 
 from fastapi import APIRouter
+from fastapi import HTTPException
+from starlette.concurrency import run_in_threadpool
 
 from app.models.schemas import (
     DesensitizeRequest,
@@ -23,6 +25,7 @@ from app.models.schemas import (
     Message,
 )
 from app.services.engine import desensitize_text, desensitize_messages
+from app.services.ner_engine import NerUnavailable
 
 logger = logging.getLogger("ictrek-desensitize.api")
 
@@ -46,12 +49,10 @@ async def desensitize(body: DesensitizeRequest):
         all_rules = {r["id"] for r in __import__("app.services.rule_store", fromlist=["rule_store"]).rule_store.get_all_rules()}
         rule_ids = [r for r in opts.rules if r in all_rules]
 
-    result_messages, replaced = desensitize_messages(
-        messages,
-        rule_ids=rule_ids,
-        skip_roles=opts.skip_roles,
-        preserve_length=opts.preserve_length,
-    )
+    try:
+        result_messages, replaced = await run_in_threadpool(desensitize_messages, messages, rule_ids, opts.skip_roles, opts.preserve_length, opts.ner)
+    except NerUnavailable as exc:
+        raise HTTPException(status_code=503, detail=f"NER requested but unavailable: {exc}") from exc
 
     elapsed_ms = (time.perf_counter() - start) * 1000
 
@@ -60,7 +61,7 @@ async def desensitize(body: DesensitizeRequest):
         replaced=[ReplacedItem(**r) for r in replaced],
         metadata={
             "latency_ms": round(elapsed_ms, 2),
-            "engine": "regex",
+            "engine": "regex+ner" if opts.ner else "regex",
             "rule_count": len(replaced),
         },
     )
@@ -81,7 +82,10 @@ async def desensitize_text_api(body: DesensitizeTextRequest):
         all_rule_ids = {r["id"] for r in rule_store.get_all_rules()}
         rule_ids = [r for r in body.rules if r in all_rule_ids]
 
-    result, replaced = desensitize_text(body.text, rule_ids=rule_ids)
+    try:
+        result, replaced = await run_in_threadpool(desensitize_text, body.text, rule_ids, False, body.ner)
+    except NerUnavailable as exc:
+        raise HTTPException(status_code=503, detail=f"NER requested but unavailable: {exc}") from exc
 
     elapsed_ms = (time.perf_counter() - start) * 1000
 

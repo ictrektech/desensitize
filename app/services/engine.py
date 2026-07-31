@@ -17,6 +17,7 @@ import logging
 from typing import Optional
 
 from app.services.rule_store import rule_store
+from app.services.ner_engine import ner_engine
 
 logger = logging.getLogger("ictrek-desensitize.engine")
 
@@ -65,6 +66,7 @@ def desensitize_text(
     text: str,
     rule_ids: Optional[list[str]] = None,
     preserve_length: bool = False,
+    ner: bool = False,
 ) -> tuple[str, list[dict]]:
     """
     对单条文本执行脱敏。
@@ -119,6 +121,12 @@ def desensitize_text(
             "occurrences": len(matches),
         })
 
+    if ner:
+        entities = ner_engine.detect(processed)
+        for entity in reversed(entities):
+            placeholder = "[PERSON_NAME]" if entity["kind"] == "PER" else "[ADDRESS]"
+            processed = processed[:entity["start"]] + placeholder + processed[entity["end"]:]
+            replaced.append({"rule": "NER 人名" if entity["kind"] == "PER" else "NER 地址", "placeholder": placeholder, "occurrences": 1})
     return processed, replaced
 
 
@@ -136,6 +144,7 @@ def desensitize_messages(
     rule_ids: Optional[list[str]] = None,
     skip_roles: Optional[list[str]] = None,
     preserve_length: bool = False,
+    ner: bool = False,
 ) -> tuple[list[dict], list[dict]]:
     """
     对消息列表执行脱敏。
@@ -163,7 +172,7 @@ def desensitize_messages(
             result_messages.append(msg)
             continue
 
-        sanitized, replaced = desensitize_text(content, rule_ids, preserve_length)
+        sanitized, replaced = desensitize_text(content, rule_ids, preserve_length, ner)
         result_messages.append({"role": role, "content": sanitized})
         all_replaced.extend(replaced)
 

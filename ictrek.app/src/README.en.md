@@ -26,6 +26,19 @@ Iframe URL: `/app/com.ictrek.desensitize/`
 Each value is an API base URL. Append `/api/v1/desensitize/text` for single-text
 desensitization. Traefik removes `/api/com.ictrek.desensitize` before forwarding.
 
+## Optional NER through Model Hub
+
+NER weights are not embedded in this image. Install the ModelScope model
+`huluxiaohuowa/bert4ner-base-chinese-onnx` in Model Hub first. Set
+`MODEL_HUB_SHARED_MODELS_PATH` at installation time (default:
+`/data/vos_workspace/model_hub`); the whole root is mounted read-only at
+`/modelhub`, and this service loads
+`/modelhub/export/ms/huluxiaohuowa/bert4ner-base-chinese-onnx/current`.
+
+Regex-only requests remain unchanged. Add `"ner": true` to a text request, or
+to batch `options`, to additionally redact person and location entities. If the
+Model Hub model is unavailable, only NER requests return 503.
+
 ## API Endpoints
 
 | Endpoint | Method | Description |

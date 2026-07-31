@@ -39,6 +39,16 @@ POST $BASE_URL/api/v1/desensitize/text`}</div>
       </div>
 
       <div className="card">
+        <div className="card-title">NER 模型依赖</div>
+        <p>NER 不随脱敏镜像发布。请先在 Model Hub 安装 ModelScope 模型 <code>huluxiaohuowa/bert4ner-base-chinese-onnx</code>；安装参数中的 Model Hub 共享目录默认是 <code>/data/vos_workspace/model_hub</code>，后端会将该总目录只读挂载为 <code>/modelhub</code>。</p>
+        <div className="code-block">{`容器内模型路径：
+/modelhub/export/ms/huluxiaohuowa/bert4ner-base-chinese-onnx/current
+
+未安装模型时：不传 ner 或传 ner=false 的纯规则 API 完全可用；
+传 ner=true 会返回 503，调用方应提示管理员在 Model Hub 安装模型。`}</div>
+      </div>
+
+      <div className="card">
         <div className="card-title">API 接口</div>
 
         <div className="integration-section">
@@ -49,7 +59,8 @@ Content-Type: application/json
 
 {
   "text": "我的手机号是13812345678",
-  "level": "standard"
+  "level": "standard",
+  "ner": true
 }
 
 # Response
@@ -60,6 +71,7 @@ Content-Type: application/json
   ],
   "latency_ms": 1.8
 }`}</div>
+          <p><code>ner</code> 默认为 <code>false</code>，保持历史纯规则行为；设为 <code>true</code> 后，在规则脱敏之后额外识别人名和地址。</p>
         </div>
 
         <div className="integration-section">
@@ -76,7 +88,8 @@ Content-Type: application/json
   "options": {
     "level": "standard",
     "skip_roles": ["assistant"],
-    "preserve_length": false
+    "preserve_length": false,
+    "ner": true
   }
 }
 

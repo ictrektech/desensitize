@@ -30,7 +30,7 @@ LOCK_DIR="${DIST_DIR}/.package.lock"
 
 PROFILES=(
   "amd|AMD_with_cuda"
-  "amd-without-cuda|AMD_with_cuda"
+  "amd-without-cuda|AMD_with_mxn100"
   "arm|ARM_with_cuda"
   "arm-without-cuda|ARM_without_cuda"
   "l4t"
@@ -217,14 +217,35 @@ raise SystemExit("latest version not found")
 PYJSON
 }
 
-# 组合查找组件列 + 读取最新 tag，返回完整镜像名。
+# 从组件列第 2 行读取仓库 URI；Feishu 是镜像来源的唯一记录。
+find_component_repository() {
+  local token="$1"
+  local sheet_id="$2"
+  local column="$3"
+  local resp
+  resp="$(get_range_values "$token" "${sheet_id}!${column}2:${column}2")"
+  python3 - "$resp" <<'PYJSON'
+import json
+import sys
+data = json.loads(sys.argv[1])
+if data.get("code") != 0:
+    raise SystemExit(f"read repository failed: {data}")
+values = data.get("data", {}).get("valueRange", {}).get("values", [])
+if not values or not values[0] or not str(values[0][0]).strip():
+    raise SystemExit("component repository missing from row2")
+print(str(values[0][0]).strip())
+PYJSON
+}
+
+# 组合查找组件列 + 读取仓库和最新 tag，返回完整镜像名。
 latest_image() {
   local token="$1"
   local sheet_id="$2"
   local component="$3"
   local repository="$4"
-  local column tag
+  local column repository tag
   column="$(find_component_column_letter "$token" "$sheet_id" "$component")" || return 1
+  repository="$(find_component_repository "$token" "$sheet_id" "$column")" || return 1
   tag="$(find_latest_tag "$token" "$sheet_id" "$column")" || return 1
   [[ -n "$tag" ]] || return 1
   echo "${repository}:${tag}"

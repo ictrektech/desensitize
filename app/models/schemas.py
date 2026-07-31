@@ -61,6 +61,7 @@ class DesensitizeOptions(BaseModel):
     preserve_length: bool = False
     skip_roles: list[str] = Field(default_factory=lambda: ["assistant"])
     audit: bool = False
+    ner: bool = False
 
 
 class DesensitizeRequest(BaseModel):
@@ -72,6 +73,7 @@ class DesensitizeTextRequest(BaseModel):
     text: str
     level: str = "standard"
     rules: Optional[list[str]] = None
+    ner: bool = False
 
 
 class ReplacedItem(BaseModel):

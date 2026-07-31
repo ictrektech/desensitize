@@ -19,6 +19,8 @@
 | --- | --- | --- |
 | `DESENSITIZE_HOST_PORT` | `35010` | 脱敏服务后端 API 映射到宿主机的调试端口 |
 | `DESENSITIZE_DATA_PATH` | `/data/vos_workspace/desensitize` | 持久化数据目录（存储自定义规则） |
+| `MODEL_HUB_SHARED_MODELS_PATH` | `/data/vos_workspace/model_hub` | Model Hub 共享模型根目录；后端会将总目录只读挂载为 `/modelhub` |
+| `DESENSITIZE_NER_ENABLED` | `true` | 是否允许请求通过 `ner=true` 启用语义脱敏 |
 
 ## 访问入口
 
@@ -44,7 +46,14 @@ VOS 内部 iframe 页面入口为：
 
 ### 脱敏测试
 
-在"脱敏测试"页面可以输入文本，实时查看脱敏效果、命中规则和耗时。
+在"脱敏测试"页面可以输入文本，实时查看脱敏效果、命中规则和耗时。启用 NER 复选框后，服务还会识别人名和地址。
+
+### NER 模型（Model Hub 依赖）
+
+NER 权重不包含在本应用镜像中。先在 Model Hub 安装 ModelScope 模型
+`huluxiaohuowa/bert4ner-base-chinese-onnx`；本服务从只读挂载的
+`/modelhub/export/ms/huluxiaohuowa/bert4ner-base-chinese-onnx/current` 加载它。
+未安装该模型时，原有正则 API 不受影响；只有请求传入 `ner=true` 才会返回 503 并提示安装模型。
 
 ### 接入指南
 
@@ -78,6 +87,15 @@ VOS 内部 iframe 页面入口为：
 | `/api/v1/desensitize/text` | POST | 单文本脱敏 |
 | `/health` | GET | 健康检查 |
 
+单文本 NER 调用（不传 `ner` 或传 `false` 时保持完全兼容的纯规则模式）：
+
+```json
+POST /api/v1/desensitize/text
+{"text":"张三住在北京市海淀区，手机号13812345678","ner":true}
+```
+
+批量接口在 `options` 中传入 `"ner": true`。规则优先执行，NER 仅处理规则未替换的文本。
+
 ## 降级策略
 
 调用云模型时建议默认阻断并告警；只有经明确风险评估的本地或可信处理链路，才可使用原始文本降级。
@@ -92,10 +110,8 @@ except Exception:
 
 ## 局限性
 
-纯规则脱敏方案能覆盖 90%+ 的常见 PII 和密钥泄露场景，但存在以下局限：
+规则与可选本地 NER 能覆盖常见 PII 和密钥泄露场景，但仍存在以下局限：
 
 - 无法识别中文数字变体（如"一三八一二三四五六七八"）
-- 无法识别姓名、地址等无固定格式的语义实体
 - 无法处理图片/截图中的敏感信息
-
-如需更高精度的语义脱敏，后续可考虑引入本地 NER 模型或本地 LLM 增强。
+- NER 当前仅处理人名和地址，且受文本上下文和模型置信度影响

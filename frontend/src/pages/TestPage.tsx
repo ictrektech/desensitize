@@ -11,11 +11,12 @@ export default function TestPage({ rules }: Props) {
   const [replaced, setReplaced] = useState<{ rule: string; placeholder: string; occurrences: number }[]>([])
   const [latency, setLatency] = useState(0)
   const [error, setError] = useState('')
+  const [useNer, setUseNer] = useState(false)
 
   const handleTest = async () => {
     setError('')
     try {
-      const resp = await api.desensitizeText(input)
+      const resp = await api.desensitizeText(input, undefined, useNer)
       setOutput(resp.text)
       setReplaced(resp.replaced)
       setLatency(resp.latency_ms)
@@ -53,6 +54,10 @@ export default function TestPage({ rules }: Props) {
             placeholder="输入要脱敏的文本..."
           />
         </div>
+        <label style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '12px', fontSize: '13px', color: 'var(--text-secondary)' }}>
+          <input type="checkbox" checked={useNer} onChange={e => setUseNer(e.target.checked)} />
+          启用 NER（需要已在 Model Hub 安装模型；识别人名和地址）
+        </label>
         <div style={{ display: 'flex', gap: '8px' }}>
           <button className="btn btn-primary" onClick={handleTest}>执行脱敏</button>
           <button className="btn" onClick={handleClear}>清空</button>

@@ -78,10 +78,10 @@ export const api = {
   },
 
   // Desensitize
-  desensitizeText: (text: string, rules?: string[]) =>
+  desensitizeText: (text: string, rules?: string[], ner = false) =>
     request<DesensitizeTextResponse>(`/api/v1/desensitize/text`, {
       method: 'POST',
-      body: JSON.stringify({ text, rules }),
+      body: JSON.stringify({ text, rules, ner }),
     }),
 
   desensitizeMessages: (messages: { role: string; content: string }[], options?: object) =>

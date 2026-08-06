@@ -2,6 +2,17 @@
 
 基于正则规则的敏感信息识别与脱敏 HTTP API 服务。
 
+## 前置依赖
+
+> ⚠️ **本服务的 NER 功能依赖 Model Hub**
+>
+> NER 模型（`huluxiaohuowa/bert4ner-base-chinese-onnx`）不随本应用镜像提供，需要通过 Model Hub 下载。
+> 首次使用 NER 功能时，本服务会自动调用 Model Hub API 触发模型下载。模型下载过程中：
+> - 纯正则脱敏 API 始终可用，不受影响
+> - `ner=true` 请求会返回 503 及"模型下载中，请稍后"提示
+>
+> 请确保 Model Hub 已安装且正常运行，且 `MODEL_HUB_SHARED_MODELS_PATH` 配置正确。
+
 ## 目录结构
 
 ```

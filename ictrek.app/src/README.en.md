@@ -2,6 +2,12 @@
 
 Desensitize Service provides regex-based sensitive information detection and desensitization HTTP API. Other VOS apps like WeKnora and agent-room can use it to sanitize data before sending to cloud models.
 
+> ⚠️ **Prerequisite: Model Hub**
+>
+> The NER (semantic desensitization) feature requires Model Hub. Make sure Model Hub is installed and running before installing this app.
+>
+> The NER model `huluxiaohuowa/bert4ner-base-chinese-onnx` is not bundled with this app. On first use of NER, the service will automatically trigger model download via Model Hub. During download, regex-only APIs remain available; `ner=true` requests will temporarily return "Model downloading, please retry later".
+
 ## Installation Profiles
 
 | Profile | Target |

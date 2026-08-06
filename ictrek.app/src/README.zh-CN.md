@@ -2,6 +2,12 @@
 
 数据脱敏服务（Desensitize Service）提供基于正则规则的敏感信息识别与脱敏 HTTP API，供 WeKnora、agent-room 等应用在调用云模型前统一脱敏，防止个人隐私和密钥泄露到云端。
 
+> ⚠️ **前置依赖：Model Hub**
+>
+> 本应用的 NER（语义脱敏）功能依赖 Model Hub 服务，请在安装本应用前确保 Model Hub 已安装且正常运行。
+>
+> NER 模型 `huluxiaohuowa/bert4ner-base-chinese-onnx` 不随本应用提供，首次使用 NER 功能时本服务会自动调用 Model Hub 触发模型下载。下载过程中纯正则脱敏 API 不受影响，`ner=true` 请求会暂时返回"模型下载中，请稍后"。
+
 ## 安装时需要选择的内容
 
 上传安装包后，安装界面会展示安装位置、计算平台 profile 和运行参数。

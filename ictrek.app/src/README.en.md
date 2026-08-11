@@ -4,9 +4,9 @@ Desensitize Service provides regex-based sensitive information detection and des
 
 > ⚠️ **Prerequisite: Model Hub**
 >
-> The NER (semantic desensitization) feature requires Model Hub. Make sure Model Hub is installed and running before installing this app.
+> NER (semantic desensitization) and image OCR require Model Hub. Make sure Model Hub is installed and running before installing this app.
 >
-> The NER model `huluxiaohuowa/bert4ner-base-chinese-onnx` is not bundled with this app. On first use of NER, the service will automatically trigger model download via Model Hub. During download, regex-only APIs remain available; `ner=true` requests will temporarily return "Model downloading, please retry later".
+> The NER model `huluxiaohuowa/bert4ner-base-chinese-onnx` and OCR model `huluxiaohuowa/rapidocr-ppocrv4-onnx` are not bundled with this app. The service can automatically trigger Model Hub downloads, and the Web "Models" page can manually download, check versions, and update them. During download, regex-only APIs remain available; `ner=true` requests and image requests return retry messages.
 
 ## Installation Profiles
 
@@ -31,24 +31,31 @@ Iframe URL: `/app/com.ictrek.desensitize/`
 Both values are API base URLs. Append `/api/v1/desensitize/text` for single-text
 desensitization. Traefik removes `/api/com.ictrek.desensitize` before forwarding.
 
-## Optional NER through Model Hub
+## Model Dependencies through Model Hub
 
-NER weights are not embedded in this image. On startup the service checks Model
-Hub through the VOS alias `model-hub-backend:5005` and requests the ModelScope
-model `huluxiaohuowa/bert4ner-base-chinese-onnx` when it is absent. Set
+NER and image OCR weights are not embedded in this image. On startup the service
+checks Model Hub through the VOS alias `model-hub-backend:5005` and requests the
+ModelScope models `huluxiaohuowa/bert4ner-base-chinese-onnx` and
+`huluxiaohuowa/rapidocr-ppocrv4-onnx` when they are absent. Set
 `MODEL_HUB_SHARED_MODELS_PATH` at installation time (default:
 `/data/vos_workspace/model_hub`); the whole root is mounted read-only at
-`/modelhub`, and this service loads
-`/modelhub/export/ms/huluxiaohuowa/bert4ner-base-chinese-onnx/current`.
+`/modelhub`, and this service loads:
+
+- `/modelhub/export/ms/huluxiaohuowa/bert4ner-base-chinese-onnx/current`
+- `/modelhub/export/ms/huluxiaohuowa/rapidocr-ppocrv4-onnx/current`
 
 This is non-blocking: regex-only requests remain unchanged while a download is
-in progress, and NER requests return 503 with a retry message. Add `"ner": true` to a text request, or
-to batch `options`, to additionally redact person and location entities. If the
-Model Hub model is unavailable, only NER requests return 503.
+in progress, NER requests return 503 with a retry message, and image requests
+return 503 until the OCR model is ready. Add `"ner": true` to a text request, or
+to batch `options`, to additionally redact person and location entities.
 
 `DESENSITIZE_NER_MAX_CONCURRENCY` is exposed at installation time and defaults to
 4. Requests beyond that limit wait up to `DESENSITIZE_NER_QUEUE_TIMEOUT_SECONDS`
 (default 30 seconds) before receiving a busy response.
+
+The Web "Models" page shows separate NER and OCR cards with Model Hub status,
+download progress, current version, access path, and download/check/update
+buttons.
 
 The top-right About button shows the current VOS app version, install profile,
 frontend/backend images, NER state, and active ONNX Runtime provider.
@@ -56,11 +63,11 @@ frontend/backend images, NER state, and active ONNX Runtime provider.
 ## Image Desensitization
 
 Image desensitization is an additional API and does not change the existing text
-APIs. The service runs RapidOCR first, reconstructs line/document text from OCR
-blocks, then applies regex matching on both the rebuilt text and a compact
-whitespace-free view. This avoids common misses when OCR splits one phone
-number, ID number, or API key into multiple boxes. Set `"ner": true` to also use
-the text NER model for person and address masking.
+APIs. The service loads RapidOCR ONNX files from Model Hub, reconstructs
+line/document text from OCR blocks, then applies regex matching on both the
+rebuilt text and a compact whitespace-free view. This avoids common misses when
+OCR splits one phone number, ID number, or API key into multiple boxes. Set
+`"ner": true` to also use the text NER model for person and address masking.
 
 ```json
 POST /api/v1/desensitize/image

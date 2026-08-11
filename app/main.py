@@ -18,6 +18,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.routers import rules as rules_router
 from app.routers import desensitize as desensitize_router
+from app.routers import models as models_router
 from app.services.rule_store import rule_store
 from app.services.ner_engine import ner_engine
 from app.services.image_ocr import image_ocr_engine
@@ -52,6 +53,7 @@ async def on_startup():
     """应用启动钩子: 加载内置规则和自定义规则。"""
     rule_store.reload()
     ner_engine.startup()
+    image_ocr_engine.startup()
     builtin_count = len(rule_store.get_builtin_rules())
     custom_count = len(rule_store.get_custom_rules())
     logger.info(
@@ -63,6 +65,7 @@ async def on_startup():
 
 app.include_router(rules_router.router)
 app.include_router(desensitize_router.router)
+app.include_router(models_router.router)
 
 
 @app.get("/health", summary="健康检查")

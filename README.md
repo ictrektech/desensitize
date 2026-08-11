@@ -4,12 +4,14 @@
 
 ## 前置依赖
 
-> ⚠️ **本服务的 NER 功能依赖 Model Hub**
+> ⚠️ **本服务的 NER 与图片 OCR 功能依赖 Model Hub**
 >
-> NER 模型（`huluxiaohuowa/bert4ner-base-chinese-onnx`）不随本应用镜像提供，需要通过 Model Hub 下载。
-> 首次使用 NER 功能时，本服务会自动调用 Model Hub API 触发模型下载。模型下载过程中：
+> NER 模型（`huluxiaohuowa/bert4ner-base-chinese-onnx`）和图片 OCR 模型
+>（`huluxiaohuowa/rapidocr-ppocrv4-onnx`）不随本应用镜像提供，需要通过 Model Hub 下载。
+> 首次使用时，本服务会自动调用 Model Hub API 触发模型下载，也可在 Web 的“模型管理”页面手动触发下载、检查版本和更新。模型下载过程中：
 > - 纯正则脱敏 API 始终可用，不受影响
 > - `ner=true` 请求会返回 503 及"模型下载中，请稍后"提示
+> - 图片接口会返回 503 及"图片 OCR 模型下载中，请稍后"提示
 >
 > 请确保 Model Hub 已安装且正常运行，且 `MODEL_HUB_SHARED_MODELS_PATH` 配置正确。
 
@@ -147,7 +149,7 @@ ictrek.app/scripts/update_version.sh patch
 代码，运行 `update_version.sh patch`。CI 只负责从每个 profile 自己的 sheet 读取 tag、
 生成 pull 模式 VOS 包和发布应用商店，不重新构建镜像。
 
-## 可选 NER（Model Hub）
+## 模型依赖（Model Hub）
 
 NER 是显式开关，历史 API 不传 `ner` 时仍是纯正则。启动后服务通过 VOS alias
 `model-hub-backend:5005` 查询 Model Hub，模型不存在时自动请求下载
@@ -156,6 +158,14 @@ NER 是显式开关，历史 API 不传 `ner` 时仍是纯正则。启动后服�
 目录到 `/modelhub`，从标准 ModelScope 导出路径加载模型。文本接口传 `{"ner": true}`，
 批量接口在 `options` 中传 `{"ner": true}`；模型下载过程不阻塞启动，未就绪时仅 NER 请求返回“模型下载中，请稍后”，纯规则请求仍可用。
 NER 默认最多并发执行 4 个推理；超过时在安装参数 `DESENSITIZE_NER_QUEUE_TIMEOUT_SECONDS` 指定的时间内排队等待（默认 30 秒），超时才返回繁忙提示。
+
+图片 OCR 模型也由 Model Hub 管理，模型 ID 为
+`huluxiaohuowa/rapidocr-ppocrv4-onnx`，服务从
+`/modelhub/export/ms/huluxiaohuowa/rapidocr-ppocrv4-onnx/current`
+读取 RapidOCR 所需的 det/rec/cls 三个 ONNX 文件。OCR 模型未就绪时服务仍可启动，文本规则和
+文本 NER 不受影响；只有图片脱敏接口会返回“图片 OCR 模型下载中，请稍后”。
+
+Web 的“模型管理”页面提供 NER 与 OCR 两张模型卡片，可查看 Model Hub 状态、下载进度、当前版本、加载路径，并手动执行下载、版本检查和更新。
 
 ## 图片脱敏
 

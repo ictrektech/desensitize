@@ -4,9 +4,9 @@
 
 > ⚠️ **前置依赖：Model Hub**
 >
-> 本应用的 NER（语义脱敏）功能依赖 Model Hub 服务，请在安装本应用前确保 Model Hub 已安装且正常运行。
+> 本应用的 NER（语义脱敏）和图片 OCR 功能依赖 Model Hub 服务，请在安装本应用前确保 Model Hub 已安装且正常运行。
 >
-> NER 模型 `huluxiaohuowa/bert4ner-base-chinese-onnx` 不随本应用提供，首次使用 NER 功能时本服务会自动调用 Model Hub 触发模型下载。下载过程中纯正则脱敏 API 不受影响，`ner=true` 请求会暂时返回"模型下载中，请稍后"。
+> NER 模型 `huluxiaohuowa/bert4ner-base-chinese-onnx` 与图片 OCR 模型 `huluxiaohuowa/rapidocr-ppocrv4-onnx` 不随本应用提供。首次使用时本服务会自动调用 Model Hub 触发模型下载，也可在 Web 的“模型管理”页面手动下载、检查版本和更新。下载过程中纯正则脱敏 API 不受影响，`ner=true` 请求会暂时返回"模型下载中，请稍后"，图片接口会暂时返回"图片 OCR 模型下载中，请稍后"。
 
 ## 安装时需要选择的内容
 
@@ -56,7 +56,7 @@ VOS 内部 iframe 页面入口为：
 
 在"脱敏测试"页面可以输入文本，实时查看脱敏效果、命中规则和耗时。启用 NER 复选框后，服务还会识别人名和地址。
 
-### NER 模型（Model Hub 依赖）
+### 模型依赖（Model Hub）
 
 NER 权重不包含在本应用镜像中。启动后服务会通过 VOS 网络 alias
 `model-hub-backend:5005` 查询 Model Hub；模型不存在或下载失败时会自动触发 ModelScope
@@ -65,13 +65,20 @@ NER 权重不包含在本应用镜像中。启动后服务会通过 VOS 网络 a
 该过程不阻塞服务启动：原有正则 API 始终可用；模型下载中时只有 `ner=true` 请求返回 503
 及“模型下载中，请稍后”。
 
+图片 OCR 模型也由 Model Hub 管理，模型 ID 为
+`huluxiaohuowa/rapidocr-ppocrv4-onnx`。服务从只读挂载的
+`/modelhub/export/ms/huluxiaohuowa/rapidocr-ppocrv4-onnx/current` 加载 RapidOCR
+所需的 det/rec/cls 三个 ONNX 文件。OCR 模型下载期间不影响文本规则和文本 NER；只有图片接口返回 503 及“图片 OCR 模型下载中，请稍后”。
+
 NER 最大并发数和队列等待时间可在安装界面分别通过
 `DESENSITIZE_NER_MAX_CONCURRENCY`（默认 4）与
 `DESENSITIZE_NER_QUEUE_TIMEOUT_SECONDS`（默认 30 秒）调整。达到并发上限时请求排队等待，只有超时才返回繁忙提示。
 
+Web 的“模型管理”页面会分别显示 NER 与 OCR 模型的 Model Hub 状态、任务进度、当前版本和加载路径，并提供“下载模型”“检查版本”“更新模型”按钮。
+
 ### 图片脱敏
 
-图片脱敏接口会先使用 RapidOCR 识别文本框，再按行重建连续文本并执行规则匹配。规则会同时在原重建文本和去空白的紧凑文本上匹配，因此一段手机号、身份证号或密钥被 OCR 拆成多个文本框时仍可命中并遮挡对应区域。传入 `ner=true` 时会复用文本 NER 模型补充识别人名和地址。
+图片脱敏接口会先使用 Model Hub 提供的 RapidOCR 模型识别文本框，再按行重建连续文本并执行规则匹配。规则会同时在原重建文本和去空白的紧凑文本上匹配，因此一段手机号、身份证号或密钥被 OCR 拆成多个文本框时仍可命中并遮挡对应区域。传入 `ner=true` 时会复用文本 NER 模型补充识别人名和地址。
 
 ### 接入指南
 

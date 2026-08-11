@@ -387,6 +387,114 @@ body {
   word-break: break-all;
 }
 
+.model-help {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-bottom: 14px;
+}
+
+.model-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 12px;
+}
+
+.model-card {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px;
+  display: grid;
+  gap: 12px;
+}
+
+.model-card.ready {
+  border-color: #9ae6b4;
+  background: #f0fff4;
+}
+
+.model-card.pending {
+  border-color: #fbd38d;
+  background: #fffaf0;
+}
+
+.model-card.running {
+  border-color: #90cdf4;
+  background: #ebf8ff;
+}
+
+.model-card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.model-card h3 {
+  font-size: 15px;
+  margin-bottom: 4px;
+}
+
+.model-card p {
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+.model-status {
+  flex-shrink: 0;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.model-status.ready {
+  background: #c6f6d5;
+  color: #276749;
+}
+
+.model-status.pending {
+  background: #feebc8;
+  color: #975a16;
+}
+
+.model-status.running {
+  background: #bee3f8;
+  color: #2b6cb0;
+}
+
+.model-meta {
+  display: grid;
+  gap: 6px;
+  font-size: 12px;
+}
+
+.model-meta div {
+  display: grid;
+  grid-template-columns: 72px minmax(0, 1fr);
+  gap: 8px;
+}
+
+.model-meta span {
+  color: var(--text-secondary);
+}
+
+.model-meta code {
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  word-break: break-all;
+}
+
+.model-progress {
+  width: 100%;
+  height: 8px;
+  accent-color: var(--primary);
+}
+
+.model-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 .integration-section {
   margin-bottom: 20px;
 }

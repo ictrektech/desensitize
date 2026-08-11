@@ -51,11 +51,44 @@ export interface AboutInfo {
   image_ocr?: {
     enabled: boolean;
     provider: string;
+    state: string;
+    model_id: string;
+    model_dir: string;
     max_concurrency: number;
     queue_timeout_seconds: number;
     ready: boolean;
     error: string | null;
   };
+}
+
+export interface ModelHubTask {
+  task_id: string;
+  model_id: string;
+  progress: number;
+  speed?: number | null;
+  eta?: number | null;
+  phase: string;
+  error_msg?: string | null;
+}
+
+export interface ManagedModelInfo {
+  key: 'ner' | 'ocr';
+  name: string;
+  description: string;
+  model_id: string;
+  source: string;
+  pull_name: string;
+  model_dir: string;
+  status: string;
+  ready: boolean;
+  runtime: Record<string, any>;
+  model?: Record<string, any> | null;
+  task?: ModelHubTask | null;
+}
+
+export interface ManagedModelActionResponse {
+  model: ManagedModelInfo;
+  result: Record<string, any>;
 }
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
@@ -122,4 +155,15 @@ export const api = {
   health: () => request<{ status: string; service: string }>(`/health`),
 
   about: () => request<AboutInfo>(`/api/v1/system/about`),
+
+  listManagedModels: () => request<ManagedModelInfo[]>(`/api/v1/models/managed`),
+
+  downloadManagedModel: (key: 'ner' | 'ocr') =>
+    request<ManagedModelActionResponse>(`/api/v1/models/managed/${key}/download`, { method: 'POST' }),
+
+  checkManagedModelUpdate: (key: 'ner' | 'ocr') =>
+    request<ManagedModelActionResponse>(`/api/v1/models/managed/${key}/check-update`, { method: 'POST' }),
+
+  updateManagedModel: (key: 'ner' | 'ocr') =>
+    request<ManagedModelActionResponse>(`/api/v1/models/managed/${key}/update`, { method: 'POST' }),
 };

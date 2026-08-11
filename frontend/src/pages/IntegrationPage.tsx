@@ -105,7 +105,7 @@ Content-Type: application/json
 
         <div className="integration-section">
           <h3>POST /api/v1/desensitize/image — 图片脱敏</h3>
-          <p>图片接口是新增能力，不改变文本接口。后端会先 OCR，再重建连续文本并执行规则匹配，避免手机号、身份证号、密钥被 OCR 拆成多个文本框后漏检。</p>
+          <p>图片接口是新增能力，不改变文本接口。后端会先 OCR，再重建连续文本并执行规则匹配，避免手机号、身份证号、密钥被 OCR 拆成多个文本框后漏检；同时会识别身份证、发票、物流面单等图片中的字段标签，并遮挡同一行或右侧相邻的字段值。</p>
           <div className="code-block">{`POST /api/v1/desensitize/image
 Content-Type: application/json
 

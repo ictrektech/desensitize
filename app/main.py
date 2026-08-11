@@ -11,6 +11,7 @@ FastAPI 应用入口。
 """
 
 import logging
+import os
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -71,3 +72,16 @@ async def health_check():
 @app.head("/health", include_in_schema=False)
 async def health_check_head():
     return {"status": "ok", "service": "ictrek-desensitize"}
+
+
+@app.get("/api/v1/system/about", summary="运行信息")
+async def system_about():
+    return {
+        "service_id": "com.ictrek.desensitize",
+        "service": "ictrek-desensitize",
+        "app_version": os.getenv("DESENSITIZE_APP_VERSION", ""),
+        "profile": os.getenv("DESENSITIZE_PROFILE", ""),
+        "backend_image": os.getenv("DESENSITIZE_BACKEND_IMAGE", ""),
+        "frontend_image": os.getenv("DESENSITIZE_FRONTEND_IMAGE", ""),
+        "ner": ner_engine.info(),
+    }

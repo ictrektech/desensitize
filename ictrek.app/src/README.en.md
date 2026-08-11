@@ -50,6 +50,9 @@ Model Hub model is unavailable, only NER requests return 503.
 4. Requests beyond that limit wait up to `DESENSITIZE_NER_QUEUE_TIMEOUT_SECONDS`
 (default 30 seconds) before receiving a busy response.
 
+The top-right About button shows the current VOS app version, install profile,
+frontend/backend images, NER state, and active ONNX Runtime provider.
+
 ## API Endpoints
 
 | Endpoint | Method | Description |

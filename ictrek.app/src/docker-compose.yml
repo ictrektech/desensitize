@@ -1,12 +1,14 @@
+x-desensitize-frontend-env: &desensitize-frontend-env
+  API_BASE: /api/com.ictrek.desensitize
+  APP_VERSION: "__APP_VERSION__"
+
 x-desensitize-frontend-base: &desensitize-frontend-base
   restart: unless-stopped
   networks:
     vos_default:
       aliases:
         - desensitize-frontend
-  environment:
-    API_BASE: /api/com.ictrek.desensitize
-    APP_VERSION: "__APP_VERSION__"
+  environment: *desensitize-frontend-env
   labels:
     - "traefik.enable=true"
     - "traefik.docker.network=vos_default"
@@ -28,6 +30,7 @@ x-desensitize-frontend-base: &desensitize-frontend-base
 
 x-desensitize-backend-env: &desensitize-backend-env
   DESENSITIZE_DATA_DIR: /data
+  DESENSITIZE_APP_VERSION: "__APP_VERSION__"
   # Model Hub owns the model lifecycle. This app only consumes its read-only export.
   DESENSITIZE_NER_ENABLED: ${DESENSITIZE_NER_ENABLED:-true}
   DESENSITIZE_NER_MODEL_DIR: /modelhub/export/ms/huluxiaohuowa/bert4ner-base-chinese-onnx/current
@@ -78,6 +81,9 @@ services:
     <<: *desensitize-frontend-base
     profiles: ["amd"]
     image: ${DESENSITIZE_FRONTEND_AMD_IMAGE}
+    environment:
+      <<: *desensitize-frontend-env
+      FRONTEND_IMAGE: ${DESENSITIZE_FRONTEND_AMD_IMAGE}
     pull_policy: always
     depends_on:
       desensitize-backend-amd:
@@ -87,6 +93,14 @@ services:
     <<: *desensitize-backend-gpu-base
     profiles: ["amd"]
     image: ${DESENSITIZE_BACKEND_AMD_IMAGE}
+    environment:
+      <<: *desensitize-backend-env
+      NVIDIA_VISIBLE_DEVICES: ${NVIDIA_VISIBLE_DEVICES:-all}
+      NVIDIA_DRIVER_CAPABILITIES: ${NVIDIA_DRIVER_CAPABILITIES:-compute,utility}
+      DESENSITIZE_NER_PROVIDER: cuda
+      DESENSITIZE_PROFILE: amd
+      DESENSITIZE_BACKEND_IMAGE: ${DESENSITIZE_BACKEND_AMD_IMAGE}
+      DESENSITIZE_FRONTEND_IMAGE: ${DESENSITIZE_FRONTEND_AMD_IMAGE}
     pull_policy: always
 
   # ── amd-without-cuda ──
@@ -94,6 +108,9 @@ services:
     <<: *desensitize-frontend-base
     profiles: ["amd-without-cuda"]
     image: ${DESENSITIZE_FRONTEND_AMD_WITHOUT_CUDA_IMAGE}
+    environment:
+      <<: *desensitize-frontend-env
+      FRONTEND_IMAGE: ${DESENSITIZE_FRONTEND_AMD_WITHOUT_CUDA_IMAGE}
     pull_policy: always
     depends_on:
       desensitize-backend-amd-without-cuda:
@@ -103,6 +120,11 @@ services:
     <<: *desensitize-backend-base
     profiles: ["amd-without-cuda"]
     image: ${DESENSITIZE_BACKEND_AMD_WITHOUT_CUDA_IMAGE}
+    environment:
+      <<: *desensitize-backend-env
+      DESENSITIZE_PROFILE: amd-without-cuda
+      DESENSITIZE_BACKEND_IMAGE: ${DESENSITIZE_BACKEND_AMD_WITHOUT_CUDA_IMAGE}
+      DESENSITIZE_FRONTEND_IMAGE: ${DESENSITIZE_FRONTEND_AMD_WITHOUT_CUDA_IMAGE}
     pull_policy: always
 
   # ── arm (ARM CUDA) ──
@@ -110,6 +132,9 @@ services:
     <<: *desensitize-frontend-base
     profiles: ["arm"]
     image: ${DESENSITIZE_FRONTEND_ARM_IMAGE}
+    environment:
+      <<: *desensitize-frontend-env
+      FRONTEND_IMAGE: ${DESENSITIZE_FRONTEND_ARM_IMAGE}
     pull_policy: always
     depends_on:
       desensitize-backend-arm:
@@ -119,6 +144,14 @@ services:
     <<: *desensitize-backend-gpu-base
     profiles: ["arm"]
     image: ${DESENSITIZE_BACKEND_ARM_IMAGE}
+    environment:
+      <<: *desensitize-backend-env
+      NVIDIA_VISIBLE_DEVICES: ${NVIDIA_VISIBLE_DEVICES:-all}
+      NVIDIA_DRIVER_CAPABILITIES: ${NVIDIA_DRIVER_CAPABILITIES:-compute,utility}
+      DESENSITIZE_NER_PROVIDER: cuda
+      DESENSITIZE_PROFILE: arm
+      DESENSITIZE_BACKEND_IMAGE: ${DESENSITIZE_BACKEND_ARM_IMAGE}
+      DESENSITIZE_FRONTEND_IMAGE: ${DESENSITIZE_FRONTEND_ARM_IMAGE}
     pull_policy: always
 
   # ── arm-without-cuda ──
@@ -126,6 +159,9 @@ services:
     <<: *desensitize-frontend-base
     profiles: ["arm-without-cuda"]
     image: ${DESENSITIZE_FRONTEND_ARM_WITHOUT_CUDA_IMAGE}
+    environment:
+      <<: *desensitize-frontend-env
+      FRONTEND_IMAGE: ${DESENSITIZE_FRONTEND_ARM_WITHOUT_CUDA_IMAGE}
     pull_policy: always
     depends_on:
       desensitize-backend-arm-without-cuda:
@@ -135,6 +171,11 @@ services:
     <<: *desensitize-backend-base
     profiles: ["arm-without-cuda"]
     image: ${DESENSITIZE_BACKEND_ARM_WITHOUT_CUDA_IMAGE}
+    environment:
+      <<: *desensitize-backend-env
+      DESENSITIZE_PROFILE: arm-without-cuda
+      DESENSITIZE_BACKEND_IMAGE: ${DESENSITIZE_BACKEND_ARM_WITHOUT_CUDA_IMAGE}
+      DESENSITIZE_FRONTEND_IMAGE: ${DESENSITIZE_FRONTEND_ARM_WITHOUT_CUDA_IMAGE}
     pull_policy: always
 
   # ── l4t (Jetson / L4T) ──
@@ -142,6 +183,9 @@ services:
     <<: *desensitize-frontend-base
     profiles: ["l4t"]
     image: ${DESENSITIZE_FRONTEND_L4T_IMAGE}
+    environment:
+      <<: *desensitize-frontend-env
+      FRONTEND_IMAGE: ${DESENSITIZE_FRONTEND_L4T_IMAGE}
     pull_policy: always
     depends_on:
       desensitize-backend-l4t:
@@ -151,6 +195,14 @@ services:
     <<: *desensitize-backend-gpu-base
     profiles: ["l4t"]
     image: ${DESENSITIZE_BACKEND_L4T_IMAGE}
+    environment:
+      <<: *desensitize-backend-env
+      NVIDIA_VISIBLE_DEVICES: ${NVIDIA_VISIBLE_DEVICES:-all}
+      NVIDIA_DRIVER_CAPABILITIES: ${NVIDIA_DRIVER_CAPABILITIES:-compute,utility}
+      DESENSITIZE_NER_PROVIDER: cuda
+      DESENSITIZE_PROFILE: l4t
+      DESENSITIZE_BACKEND_IMAGE: ${DESENSITIZE_BACKEND_L4T_IMAGE}
+      DESENSITIZE_FRONTEND_IMAGE: ${DESENSITIZE_FRONTEND_L4T_IMAGE}
     pull_policy: always
 
   # ── thor-spark ──
@@ -158,6 +210,9 @@ services:
     <<: *desensitize-frontend-base
     profiles: ["thor-spark"]
     image: ${DESENSITIZE_FRONTEND_THOR_SPARK_IMAGE}
+    environment:
+      <<: *desensitize-frontend-env
+      FRONTEND_IMAGE: ${DESENSITIZE_FRONTEND_THOR_SPARK_IMAGE}
     pull_policy: always
     depends_on:
       desensitize-backend-thor-spark:
@@ -167,6 +222,14 @@ services:
     <<: *desensitize-backend-gpu-base
     profiles: ["thor-spark"]
     image: ${DESENSITIZE_BACKEND_THOR_SPARK_IMAGE}
+    environment:
+      <<: *desensitize-backend-env
+      NVIDIA_VISIBLE_DEVICES: ${NVIDIA_VISIBLE_DEVICES:-all}
+      NVIDIA_DRIVER_CAPABILITIES: ${NVIDIA_DRIVER_CAPABILITIES:-compute,utility}
+      DESENSITIZE_NER_PROVIDER: cuda
+      DESENSITIZE_PROFILE: thor-spark
+      DESENSITIZE_BACKEND_IMAGE: ${DESENSITIZE_BACKEND_THOR_SPARK_IMAGE}
+      DESENSITIZE_FRONTEND_IMAGE: ${DESENSITIZE_FRONTEND_THOR_SPARK_IMAGE}
     pull_policy: always
 
 networks:

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { api, Rule } from './api/client'
+import { api, AboutInfo, Rule } from './api/client'
 import RulesPage from './pages/RulesPage'
 import IntegrationPage from './pages/IntegrationPage'
 import TestPage from './pages/TestPage'
@@ -11,6 +11,12 @@ export default function App() {
   const [rules, setRules] = useState<Rule[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [aboutOpen, setAboutOpen] = useState(false)
+  const [about, setAbout] = useState<AboutInfo | null>(null)
+  const [aboutError, setAboutError] = useState('')
+
+  const appVersion = window.__APP_VERSION__ || 'unknown'
+  const frontendImage = window.__FRONTEND_IMAGE__ || ''
 
   const loadRules = useCallback(async () => {
     setLoading(true)
@@ -29,6 +35,16 @@ export default function App() {
     loadRules()
   }, [loadRules])
 
+  const openAbout = async () => {
+    setAboutOpen(true)
+    setAboutError('')
+    try {
+      setAbout(await api.about())
+    } catch (e: any) {
+      setAboutError(e.message || '加载运行信息失败')
+    }
+  }
+
   const builtinCount = rules.filter(r => r.builtin).length
   const customCount = rules.filter(r => !r.builtin).length
   const enabledCount = rules.filter(r => r.enabled).length
@@ -36,8 +52,11 @@ export default function App() {
   return (
     <div className="app">
       <div className="app-header">
-        <h1>数据脱敏服务</h1>
-        <p>基于正则规则的敏感信息识别与脱敏，供 WeKnora、agent-room 等应用在调用云模型前统一脱敏</p>
+        <div>
+          <h1>数据脱敏服务</h1>
+          <p>基于正则规则的敏感信息识别与脱敏，供 WeKnora、agent-room 等应用在调用云模型前统一脱敏</p>
+        </div>
+        <button className="btn about-button" onClick={openAbout}>关于</button>
       </div>
 
       <div className="stats">
@@ -81,6 +100,32 @@ export default function App() {
           {tab === 'test' && <TestPage rules={rules} />}
           {tab === 'integration' && <IntegrationPage />}
         </>
+      )}
+
+      {aboutOpen && (
+        <div className="modal-overlay" onClick={() => setAboutOpen(false)}>
+          <div className="modal about-modal" onClick={e => e.stopPropagation()}>
+            <div className="modal-title">关于数据脱敏服务</div>
+            {aboutError && <div className="result-box error">{aboutError}</div>}
+            <table>
+              <tbody>
+                <tr><th>服务 ID</th><td>{about?.service_id || 'com.ictrek.desensitize'}</td></tr>
+                <tr><th>VOS App 版本</th><td>{about?.app_version || appVersion}</td></tr>
+                <tr><th>当前 Profile</th><td>{about?.profile || '-'}</td></tr>
+                <tr><th>前端镜像</th><td className="mono-cell">{frontendImage || about?.frontend_image || '-'}</td></tr>
+                <tr><th>后端镜像</th><td className="mono-cell">{about?.backend_image || '-'}</td></tr>
+                <tr><th>NER 状态</th><td>{about?.ner ? `${about.ner.state}${about.ner.enabled ? '' : ' / disabled'}` : '-'}</td></tr>
+                <tr><th>NER Provider</th><td>{about?.ner?.active_provider || about?.ner?.requested_provider || '-'}</td></tr>
+                <tr><th>NER 并发</th><td>{about?.ner ? `${about.ner.max_concurrency}，排队 ${about.ner.queue_timeout_seconds}s` : '-'}</td></tr>
+                <tr><th>NER 模型</th><td className="mono-cell">{about?.ner?.model_id || '-'}</td></tr>
+              </tbody>
+            </table>
+            {about?.ner?.error && <div className="result-box error">{about.ner.error}</div>}
+            <div className="modal-actions">
+              <button className="btn btn-primary" onClick={() => setAboutOpen(false)}>关闭</button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )

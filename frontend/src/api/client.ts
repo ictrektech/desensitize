@@ -30,6 +30,26 @@ export interface DesensitizeResponse {
   metadata: { latency_ms: number; engine: string; rule_count: number };
 }
 
+export interface AboutInfo {
+  service_id: string;
+  service: string;
+  app_version: string;
+  profile: string;
+  backend_image: string;
+  frontend_image: string;
+  ner: {
+    enabled: boolean;
+    state: string;
+    requested_provider: string;
+    active_provider: string | null;
+    model_id: string;
+    model_dir: string;
+    max_concurrency: number;
+    queue_timeout_seconds: number;
+    error: string | null;
+  };
+}
+
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const resp = await fetch(`${API_BASE}${path}`, {
     headers: { 'Content-Type': 'application/json' },
@@ -92,4 +112,6 @@ export const api = {
 
   // Health
   health: () => request<{ status: string; service: string }>(`/health`),
+
+  about: () => request<AboutInfo>(`/api/v1/system/about`),
 };

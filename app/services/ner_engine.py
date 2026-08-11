@@ -45,6 +45,23 @@ class NerEngine:
             return
         threading.Thread(target=self._ensure_model_then_initialize, name="desensitize-ner-modelhub", daemon=True).start()
 
+    def info(self) -> dict:
+        active_provider = None
+        if self._session is not None:
+            providers = self._session.get_providers()
+            active_provider = providers[0] if providers else None
+        return {
+            "enabled": self.enabled,
+            "state": self._state,
+            "requested_provider": self.provider,
+            "active_provider": active_provider,
+            "model_id": self.model_id,
+            "model_dir": str(self.model_dir),
+            "max_concurrency": self.max_concurrency,
+            "queue_timeout_seconds": self.queue_timeout_seconds,
+            "error": self._error,
+        }
+
     def _set_state(self, state: str, error: str | None = None) -> None:
         with self._state_lock:
             self._state = state

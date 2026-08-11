@@ -1,1 +1,3 @@
 window.__API_BASE__ = '${API_BASE}';
+window.__APP_VERSION__ = '${APP_VERSION}';
+window.__FRONTEND_IMAGE__ = '${FRONTEND_IMAGE}';

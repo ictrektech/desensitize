@@ -157,6 +157,15 @@ NER 是显式开关，历史 API 不传 `ner` 时仍是纯正则。启动后服�
 批量接口在 `options` 中传 `{"ner": true}`；模型下载过程不阻塞启动，未就绪时仅 NER 请求返回“模型下载中，请稍后”，纯规则请求仍可用。
 NER 默认最多并发执行 4 个推理；超过时在安装参数 `DESENSITIZE_NER_QUEUE_TIMEOUT_SECONDS` 指定的时间内排队等待（默认 30 秒），超时才返回繁忙提示。
 
+## 运行信息
+
+Web 界面右上角“关于”按钮会显示当前 VOS App 版本、安装 profile、前后端镜像，以及 NER
+运行状态和实际 ONNX Runtime provider。后端只读接口为：
+
+```bash
+GET /api/v1/system/about
+```
+
 ## 内置规则
 
 | 规则 | 分类 | 占位符 |

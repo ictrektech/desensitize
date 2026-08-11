@@ -366,7 +366,7 @@ verify_package() {
   printf '%s\n' "$manifest_text" | grep -Fq "  basePath: ${FRONTEND_BASE_PATH}" || die "manifest.yml frontend.basePath must be ${FRONTEND_BASE_PATH}"
 
   compose_text="$(tar xOf "$app_tarball" docker-compose.yml)"
-  if printf '%s\n' "$compose_text" | grep -q '\${[^}]*_IMAGE[^}]*}'; then
+  if printf '%s\n' "$compose_text" | grep -Eq '\$\{[A-Z0-9_]*_IMAGE\}'; then
     die 'unrendered image variable remains in docker-compose.yml'
   fi
   if printf '%s\n' "$compose_text" | awk '/^[[:space:]]*image:/ {print $2}' | grep -v '^[^/[:space:]]\+\.[^/[:space:]]\+/' | grep -q .; then

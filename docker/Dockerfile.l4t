@@ -2,10 +2,13 @@ FROM dustynv/pytorch:2.7-r36.4.0-cu128-24.04
 
 WORKDIR /app
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
+RUN apt-get update && apt-get install -y --no-install-recommends libxcb1 libgl1 libglib2.0-0 \
+    && rm -rf /var/lib/apt/lists/*
 COPY requirements.txt ./
 COPY docker/modules/l4t-jp6-cu129/onnxruntime_gpu-1.23.0-cp312-cp312-linux_aarch64.whl /tmp/
 RUN pip3 install --no-cache-dir -r requirements.txt \
       --index-url https://mirrors.aliyun.com/pypi/simple --trusted-host mirrors.aliyun.com \
+    && pip3 uninstall -y onnxruntime || true \
     && pip3 install --force-reinstall --no-deps /tmp/onnxruntime_gpu-1.23.0-cp312-cp312-linux_aarch64.whl \
     && rm /tmp/onnxruntime_gpu-1.23.0-cp312-cp312-linux_aarch64.whl
 COPY app ./app

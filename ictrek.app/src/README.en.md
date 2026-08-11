@@ -53,6 +53,37 @@ Model Hub model is unavailable, only NER requests return 503.
 The top-right About button shows the current VOS app version, install profile,
 frontend/backend images, NER state, and active ONNX Runtime provider.
 
+## Image Desensitization
+
+Image desensitization is an additional API and does not change the existing text
+APIs. The service runs RapidOCR first, reconstructs line/document text from OCR
+blocks, then applies regex matching on both the rebuilt text and a compact
+whitespace-free view. This avoids common misses when OCR splits one phone
+number, ID number, or API key into multiple boxes. Set `"ner": true` to also use
+the text NER model for person and address masking.
+
+```json
+POST /api/v1/desensitize/image
+{
+  "image_base64": "<base64 or data:image/...;base64,...>",
+  "mime_type": "image/jpeg",
+  "ner": false,
+  "return_coordinates": true,
+  "max_side": 1600
+}
+```
+
+The response `image_base64` is the masked image. `replaced` contains match
+statistics. `coordinates` is returned only when `return_coordinates` is true.
+
+OCR is conservative by default for weaker devices:
+
+| Config | Default | Description |
+| --- | --- | --- |
+| `DESENSITIZE_IMAGE_OCR_ENABLED` | `true` | Enables the image OCR API |
+| `DESENSITIZE_IMAGE_OCR_MAX_CONCURRENCY` | `1` | Number of simultaneous OCR jobs |
+| `DESENSITIZE_IMAGE_OCR_QUEUE_TIMEOUT_SECONDS` | `20` | Queue wait timeout when OCR is busy |
+
 ## API Endpoints
 
 | Endpoint | Method | Description |
@@ -64,4 +95,5 @@ frontend/backend images, NER state, and active ONNX Runtime provider.
 | `/api/v1/rules/test` | POST | Test regex pattern |
 | `/api/v1/desensitize` | POST | Batch desensitize messages |
 | `/api/v1/desensitize/text` | POST | Desensitize single text |
+| `/api/v1/desensitize/image` | POST | OCR-based image desensitization |
 | `/health` | GET | Health check |

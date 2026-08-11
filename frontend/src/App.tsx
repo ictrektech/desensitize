@@ -118,9 +118,12 @@ export default function App() {
                 <tr><th>NER Provider</th><td>{about?.ner?.active_provider || about?.ner?.requested_provider || '-'}</td></tr>
                 <tr><th>NER 并发</th><td>{about?.ner ? `${about.ner.max_concurrency}，排队 ${about.ner.queue_timeout_seconds}s` : '-'}</td></tr>
                 <tr><th>NER 模型</th><td className="mono-cell">{about?.ner?.model_id || '-'}</td></tr>
+                <tr><th>图片 OCR</th><td>{about?.image_ocr ? `${about.image_ocr.enabled ? 'enabled' : 'disabled'} / ${about.image_ocr.provider}` : '-'}</td></tr>
+                <tr><th>OCR 并发</th><td>{about?.image_ocr ? `${about.image_ocr.max_concurrency}，排队 ${about.image_ocr.queue_timeout_seconds}s` : '-'}</td></tr>
               </tbody>
             </table>
             {about?.ner?.error && <div className="result-box error">{about.ner.error}</div>}
+            {about?.image_ocr?.error && <div className="result-box error">{about.image_ocr.error}</div>}
             <div className="modal-actions">
               <button className="btn btn-primary" onClick={() => setAboutOpen(false)}>关闭</button>
             </div>

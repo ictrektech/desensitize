@@ -157,6 +157,40 @@ NER 是显式开关，历史 API 不传 `ner` 时仍是纯正则。启动后服�
 批量接口在 `options` 中传 `{"ner": true}`；模型下载过程不阻塞启动，未就绪时仅 NER 请求返回“模型下载中，请稍后”，纯规则请求仍可用。
 NER 默认最多并发执行 4 个推理；超过时在安装参数 `DESENSITIZE_NER_QUEUE_TIMEOUT_SECONDS` 指定的时间内排队等待（默认 30 秒），超时才返回繁忙提示。
 
+## 图片脱敏
+
+图片接口为新增能力，不影响原有文本接口：
+
+```bash
+POST /api/v1/desensitize/image
+```
+
+请求体：
+
+```json
+{
+  "image_base64": "<base64 或 data:image/...;base64,...>",
+  "mime_type": "image/jpeg",
+  "ner": false,
+  "return_coordinates": true,
+  "max_side": 1600
+}
+```
+
+返回值中的 `image_base64` 是已打码图片；`replaced` 给出命中规则统计；开启
+`return_coordinates` 时会返回实际遮挡区域坐标。图片脱敏流程先用 RapidOCR 识别文本块，
+再按行重建连续文本并保留文本到图片框的映射；规则会同时在原重建文本和去空白的紧凑文本上匹配，
+因此手机号、身份证号、密钥等被 OCR 拆成多个文本框时仍可命中。`ner=true` 时会复用文本
+NER 模型补充人名、地址遮挡。
+
+图片 OCR 默认参数面向 tc192/L4T 这类弱性能设备保守设置：
+
+| 参数 | 默认值 | 说明 |
+| --- | --- | --- |
+| `DESENSITIZE_IMAGE_OCR_ENABLED` | `true` | 是否启用图片 OCR 脱敏接口 |
+| `DESENSITIZE_IMAGE_OCR_MAX_CONCURRENCY` | `1` | 同时执行的 OCR 数量 |
+| `DESENSITIZE_IMAGE_OCR_QUEUE_TIMEOUT_SECONDS` | `20` | OCR 并发满时的排队等待时间 |
+
 ## 运行信息
 
 Web 界面右上角“关于”按钮会显示当前 VOS App 版本、安装 profile、前后端镜像，以及 NER

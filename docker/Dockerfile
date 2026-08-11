@@ -11,6 +11,7 @@ ARG DEBIAN_FRONTEND=noninteractive
 # 1. 系统依赖
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl wget ca-certificates \
+    libgl1 libglib2.0-0 \
     python3 python3-pip python3-venv \
   && rm -rf /var/lib/apt/lists/*
 

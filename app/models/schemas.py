@@ -92,3 +92,22 @@ class DesensitizeTextResponse(BaseModel):
     text: str
     replaced: list[ReplacedItem]
     latency_ms: float
+
+
+class ImageDesensitizeRequest(BaseModel):
+    image_base64: str
+    mime_type: str = "image/jpeg"
+    level: str = "standard"
+    rules: Optional[list[str]] = None
+    ner: bool = False
+    return_coordinates: bool = False
+    max_side: int = Field(default=1600, ge=256, le=4096)
+
+
+class ImageDesensitizeResponse(BaseModel):
+    image_base64: str
+    mime_type: str
+    replaced: list[ReplacedItem]
+    metadata: dict
+    latency_ms: float
+    coordinates: Optional[list[dict]] = None

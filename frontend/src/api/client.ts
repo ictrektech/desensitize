@@ -48,6 +48,14 @@ export interface AboutInfo {
     queue_timeout_seconds: number;
     error: string | null;
   };
+  image_ocr?: {
+    enabled: boolean;
+    provider: string;
+    max_concurrency: number;
+    queue_timeout_seconds: number;
+    ready: boolean;
+    error: string | null;
+  };
 }
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {

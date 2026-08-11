@@ -26,6 +26,9 @@
 | `DESENSITIZE_DATA_PATH` | `/data/vos_workspace/desensitize` | 持久化数据目录（存储自定义规则） |
 | `MODEL_HUB_SHARED_MODELS_PATH` | `/data/vos_workspace/model_hub` | Model Hub 共享模型根目录；后端会将总目录只读挂载为 `/modelhub` |
 | `DESENSITIZE_NER_ENABLED` | `true` | 是否允许请求通过 `ner=true` 启用语义脱敏 |
+| `DESENSITIZE_IMAGE_OCR_ENABLED` | `true` | 是否启用图片 OCR 脱敏接口 |
+| `DESENSITIZE_IMAGE_OCR_MAX_CONCURRENCY` | `1` | 同时执行的图片 OCR 数量；tc192/L4T 建议保持默认 |
+| `DESENSITIZE_IMAGE_OCR_QUEUE_TIMEOUT_SECONDS` | `20` | 图片 OCR 并发满时的最长排队等待时间 |
 
 ## 访问入口
 
@@ -66,6 +69,10 @@ NER 最大并发数和队列等待时间可在安装界面分别通过
 `DESENSITIZE_NER_MAX_CONCURRENCY`（默认 4）与
 `DESENSITIZE_NER_QUEUE_TIMEOUT_SECONDS`（默认 30 秒）调整。达到并发上限时请求排队等待，只有超时才返回繁忙提示。
 
+### 图片脱敏
+
+图片脱敏接口会先使用 RapidOCR 识别文本框，再按行重建连续文本并执行规则匹配。规则会同时在原重建文本和去空白的紧凑文本上匹配，因此一段手机号、身份证号或密钥被 OCR 拆成多个文本框时仍可命中并遮挡对应区域。传入 `ner=true` 时会复用文本 NER 模型补充识别人名和地址。
+
 ### 接入指南
 
 "接入指南"页面提供了其他应用接入的完整示例代码和配置说明。
@@ -97,6 +104,7 @@ NER 最大并发数和队列等待时间可在安装界面分别通过
 | `/api/v1/rules/test` | POST | 测试正则表达式 |
 | `/api/v1/desensitize` | POST | 批量脱敏消息列表 |
 | `/api/v1/desensitize/text` | POST | 单文本脱敏 |
+| `/api/v1/desensitize/image` | POST | 图片 OCR 脱敏 |
 | `/health` | GET | 健康检查 |
 
 单文本 NER 调用（不传 `ner` 或传 `false` 时保持完全兼容的纯规则模式）：
@@ -107,6 +115,21 @@ POST /api/v1/desensitize/text
 ```
 
 批量接口在 `options` 中传入 `"ner": true`。规则优先执行，NER 仅处理规则未替换的文本。
+
+图片脱敏调用：
+
+```json
+POST /api/v1/desensitize/image
+{
+  "image_base64": "<base64 或 data:image/...;base64,...>",
+  "mime_type": "image/jpeg",
+  "ner": false,
+  "return_coordinates": true,
+  "max_side": 1600
+}
+```
+
+返回 `image_base64` 为已打码图片；`replaced` 为命中统计；`coordinates` 为可选遮挡坐标。
 
 ## 降级策略
 
@@ -125,5 +148,5 @@ except Exception:
 规则与可选本地 NER 能覆盖常见 PII 和密钥泄露场景，但仍存在以下局限：
 
 - 无法识别中文数字变体（如"一三八一二三四五六七八"）
-- 无法处理图片/截图中的敏感信息
+- 图片脱敏依赖 OCR 识别质量，低清晰度、强倾斜或复杂背景图片可能漏检
 - NER 当前仅处理人名和地址，且受文本上下文和模型置信度影响

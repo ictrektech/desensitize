@@ -20,6 +20,7 @@ from app.routers import rules as rules_router
 from app.routers import desensitize as desensitize_router
 from app.services.rule_store import rule_store
 from app.services.ner_engine import ner_engine
+from app.services.image_ocr import image_ocr_engine
 
 logging.basicConfig(
     level=logging.INFO,
@@ -84,4 +85,5 @@ async def system_about():
         "backend_image": os.getenv("DESENSITIZE_BACKEND_IMAGE", ""),
         "frontend_image": os.getenv("DESENSITIZE_FRONTEND_IMAGE", ""),
         "ner": ner_engine.info(),
+        "image_ocr": image_ocr_engine.info(),
     }

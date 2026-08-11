@@ -101,6 +101,37 @@ Content-Type: application/json
         </div>
 
         <div className="integration-section">
+          <h3>POST /api/v1/desensitize/image — 图片脱敏</h3>
+          <p>图片接口是新增能力，不改变文本接口。后端会先 OCR，再重建连续文本并执行规则匹配，避免手机号、身份证号、密钥被 OCR 拆成多个文本框后漏检。</p>
+          <div className="code-block">{`POST /api/v1/desensitize/image
+Content-Type: application/json
+
+{
+  "image_base64": "<base64 或 data:image/...;base64,...>",
+  "mime_type": "image/jpeg",
+  "level": "standard",
+  "ner": false,
+  "return_coordinates": true,
+  "max_side": 1600
+}
+
+# Response
+{
+  "image_base64": "<masked-image-base64>",
+  "mime_type": "image/jpeg",
+  "replaced": [
+    {"rule": "手机号 (中国)", "placeholder": "[PHONE_NUMBER]", "occurrences": 1}
+  ],
+  "metadata": {"ocr_engine": "rapidocr", "ocr_blocks": 12, "normalized_matching": true},
+  "latency_ms": 320.5,
+  "coordinates": [
+    {"box": {"x1": 10, "y1": 20, "x2": 180, "y2": 48}, "quad": [[10,20],[180,20],[180,48],[10,48]]}
+  ]
+}`}</div>
+          <p>tc192/L4T 等弱性能环境建议保持默认：<code>max_side=1600</code>、OCR 并发 <code>1</code>。需要人名/地址语义遮挡时再传 <code>ner=true</code>。</p>
+        </div>
+
+        <div className="integration-section">
           <h3>GET /api/v1/rules — 列出所有规则</h3>
           <div className="code-block">{`GET /api/v1/rules?enabled_only=true
 

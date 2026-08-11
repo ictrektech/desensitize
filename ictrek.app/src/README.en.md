@@ -84,7 +84,10 @@ The response `image_base64` is the masked image. `replaced` contains match
 statistics. `coordinates` is returned only when `return_coordinates` is true.
 When RapidOCR misses a long visible text row, the service applies a conservative
 full-row fallback mask to prevent long API keys or tokens from being returned
-unchanged.
+unchanged. For Chinese ID cards, invoices, and logistics labels, the image
+pipeline also detects nearby values for field labels such as ID number, phone,
+address, email, taxpayer ID, invoice number, order number, and tracking number,
+so fragmented or partially missed OCR digits can still be masked.
 
 OCR is conservative by default for weaker devices:
 

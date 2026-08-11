@@ -2,10 +2,24 @@
 
 from __future__ import annotations
 
+import re
+
 from PIL import Image, ImageOps
 
 from app.services.image_layout import OcrBlock, Point, Rect
 from app.services.image_masker import MaskRegion
+
+
+SENSITIVE_FIELD_LABELS: tuple[tuple[re.Pattern[str], str], ...] = (
+    (re.compile(r"公民身份(?:号码|号)?|身份证(?:号|号码)|证件(?:号|号码)"), "身份证字段邻近值"),
+    (re.compile(r"手机|电话|联系方式|联系电话"), "电话字段邻近值"),
+    (re.compile(r"邮箱|电子邮箱|E[-_ ]?mail", re.IGNORECASE), "邮箱字段邻近值"),
+    (re.compile(r"住址|地址|详细地址|收货地址|寄件地址"), "地址字段邻近值"),
+    (re.compile(r"银行卡|银行账号|账号"), "账号字段邻近值"),
+    (re.compile(r"纳税人识别号|统一社会信用代码|税号"), "税号字段邻近值"),
+    (re.compile(r"发票(?:代码|号码)|票据号码|机打号码|校验码"), "发票字段邻近值"),
+    (re.compile(r"订单号|运单号|快递单号|物流单号|单号"), "物流字段邻近值"),
+)
 
 
 def detect_unrecognized_long_text_regions(
@@ -78,6 +92,74 @@ def detect_unrecognized_long_text_regions(
     return regions
 
 
+def detect_sensitive_field_value_regions(
+    blocks: list[OcrBlock],
+    *,
+    image_width: int,
+    padding: float = 4.0,
+) -> list[tuple[MaskRegion, str]]:
+    """Mask values near sensitive Chinese field labels.
+
+    OCR may split or space out ID/invoice numbers so regex matching misses them.
+    For document photos, the field label itself is a strong signal; mask the
+    same-line value blocks to the right of that label.
+    """
+
+    regions: list[tuple[MaskRegion, str]] = []
+    seen: set[tuple[int, int, int, int, str]] = set()
+    lines: dict[int | None, list[OcrBlock]] = {}
+    for block in blocks:
+        lines.setdefault(block.line_id, []).append(block)
+
+    for line in lines.values():
+        line.sort(key=lambda b: b.bbox.x1)
+        line_height = max((b.bbox.height for b in line), default=0.0)
+        for index, block in enumerate(line):
+            label = _label_name(block.text)
+            if label is None:
+                continue
+
+            value_blocks = [
+                candidate
+                for candidate in line[index + 1 :]
+                if candidate.bbox.x1 >= block.bbox.x2 - max(3.0, line_height * 0.25)
+                and _looks_like_field_value(candidate.text)
+            ]
+            if not value_blocks and _inline_label_has_value(block.text):
+                value_blocks = [block]
+            if not value_blocks:
+                region = _right_of_label_region(block, padding=padding, image_width=image_width)
+                key = (
+                    int(region.box.x1),
+                    int(region.box.y1),
+                    int(region.box.x2),
+                    int(region.box.y2),
+                    label,
+                )
+                if key in seen:
+                    continue
+                seen.add(key)
+                regions.append((region, label))
+                continue
+            if not value_blocks:
+                continue
+
+            region = _region_for_blocks(value_blocks, padding=padding, image_width=image_width)
+            key = (
+                int(region.box.x1),
+                int(region.box.y1),
+                int(region.box.x2),
+                int(region.box.y2),
+                label,
+            )
+            if key in seen:
+                continue
+            seen.add(key)
+            regions.append((region, label))
+
+    return regions
+
+
 def _merge_rows(rows: list[int], *, max_gap: int) -> list[tuple[int, int]]:
     if not rows:
         return []
@@ -103,3 +185,62 @@ def _overlaps_ocr_block(y1: int, y2: int, blocks: list[OcrBlock]) -> bool:
         if overlap / band_height >= 0.45:
             return True
     return False
+
+
+def _label_name(text: str) -> str | None:
+    compact = re.sub(r"\s+", "", text or "")
+    for pattern, label in SENSITIVE_FIELD_LABELS:
+        if pattern.search(compact):
+            return label
+    return None
+
+
+def _inline_label_has_value(text: str) -> bool:
+    compact = re.sub(r"\s+", "", text or "")
+    return bool(re.search(r"[:：][A-Za-z0-9\u4e00-\u9fff]{2,}", compact))
+
+
+def _looks_like_field_value(text: str) -> bool:
+    compact = re.sub(r"\s+", "", text or "")
+    if not compact:
+        return False
+    if re.search(r"\d{3,}", compact):
+        return True
+    if re.search(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+", compact):
+        return True
+    if re.search(r"[A-Za-z0-9][A-Za-z0-9_-]{6,}", compact):
+        return True
+    if re.search(r"[\u4e00-\u9fff]{2,}", compact):
+        return True
+    return False
+
+
+def _region_for_blocks(blocks: list[OcrBlock], *, padding: float, image_width: int) -> MaskRegion:
+    x1 = min(b.bbox.x1 for b in blocks) - padding
+    y1 = min(b.bbox.y1 for b in blocks) - padding
+    x2 = max(b.bbox.x2 for b in blocks) + padding
+    y2 = max(b.bbox.y2 for b in blocks) + padding
+    box = Rect(max(0.0, x1), max(0.0, y1), min(float(image_width), x2), y2)
+    quad = [
+        Point(box.x1, box.y1),
+        Point(box.x2, box.y1),
+        Point(box.x2, box.y2),
+        Point(box.x1, box.y2),
+    ]
+    return MaskRegion(box, quad)
+
+
+def _right_of_label_region(block: OcrBlock, *, padding: float, image_width: int) -> MaskRegion:
+    width = max(120.0, block.bbox.width * 2.4)
+    x1 = block.bbox.x2 + padding
+    x2 = min(float(image_width), x1 + width)
+    y1 = max(0.0, block.bbox.y1 - padding)
+    y2 = block.bbox.y2 + padding
+    box = Rect(x1, y1, x2, y2)
+    quad = [
+        Point(box.x1, box.y1),
+        Point(box.x2, box.y1),
+        Point(box.x2, box.y2),
+        Point(box.x1, box.y2),
+    ]
+    return MaskRegion(box, quad)

@@ -193,6 +193,9 @@ POST /api/v1/desensitize/image
 因此手机号、身份证号、密钥等被 OCR 拆成多个文本框时仍可命中。`ner=true` 时会复用文本
 NER 模型补充人名、地址遮挡。对于 RapidOCR 未返回文本框但图像上存在的长文本行，服务会
 执行保守补偿遮挡，避免长 API Key、Token 等英文/符号混合串因 OCR 漏检而原样返回。
+针对身份证、发票、物流面单等中文图片，服务还会识别“公民身份号码、手机号、地址、邮箱、
+纳税人识别号、发票号码、订单号、运单号”等字段标签，并遮挡同一行或右侧相邻的字段值，
+用于兜底 OCR 将数字拆断、漏识别或未形成完整正则匹配的情况。
 
 图片 OCR 默认参数面向 tc192/L4T 这类弱性能设备保守设置：
 
@@ -228,3 +231,6 @@ GET /api/v1/system/about
 | 密码/凭证关键词 | api_key | [CREDENTIAL] |
 | IP 地址 (IPv4) | pii | [IP_ADDRESS] |
 | URL 敏感参数 | api_key | [REDACTED_PARAM]=[FILTERED] |
+| 纳税人识别号/统一社会信用代码 | document | [TAXPAYER_ID] |
+| 发票代码/号码 | document | [INVOICE_NUMBER] |
+| 订单号/运单号 | document | [ORDER_NUMBER] |

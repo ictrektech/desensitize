@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import time
 
-from app.services.image_fallback import detect_unrecognized_long_text_regions
+from app.services.image_fallback import detect_sensitive_field_value_regions, detect_unrecognized_long_text_regions
 from app.services.image_layout import rebuild_text, span_to_block_ids
 from app.services.image_matcher import ImageMatch, match_rebuilt_text
 from app.services.image_masker import (
@@ -63,6 +63,12 @@ def desensitize_image_base64(
             replaced.append({"rule": "NER 人名" if entity["kind"] == "PER" else "NER 地址", "placeholder": placeholder, "occurrences": 1})
 
     regions = regions_for_matches(blocks, matches)
+    field_regions = detect_sensitive_field_value_regions(blocks, image_width=original.width)
+    if field_regions:
+        regions.extend(region for region, _ in field_regions)
+        for label in _group_labels(label for _, label in field_regions):
+            replaced.append({"rule": label[0], "placeholder": "[FIELD_VALUE]", "occurrences": label[1]})
+
     fallback_regions = detect_unrecognized_long_text_regions(original, blocks)
     if fallback_regions:
         regions.extend(fallback_regions)
@@ -85,6 +91,7 @@ def desensitize_image_base64(
             "ocr_blocks": len(blocks),
             "rebuilt_text_length": len(rebuilt.text),
             "normalized_matching": True,
+            "field_fallback_regions": len(field_regions),
             "fallback_masked_lines": len(fallback_regions),
             "resized": scale != 1.0,
             "scale": round(scale, 6),
@@ -112,3 +119,10 @@ def _matches_to_replaced(matches) -> list[dict]:
         {"rule": rule_name, "placeholder": placeholder, "occurrences": count}
         for (rule_name, placeholder), count in grouped.items()
     ]
+
+
+def _group_labels(labels) -> list[tuple[str, int]]:
+    grouped: dict[str, int] = {}
+    for label in labels:
+        grouped[label] = grouped.get(label, 0) + 1
+    return list(grouped.items())

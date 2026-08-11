@@ -82,6 +82,9 @@ POST /api/v1/desensitize/image
 
 The response `image_base64` is the masked image. `replaced` contains match
 statistics. `coordinates` is returned only when `return_coordinates` is true.
+When RapidOCR misses a long visible text row, the service applies a conservative
+full-row fallback mask to prevent long API keys or tokens from being returned
+unchanged.
 
 OCR is conservative by default for weaker devices:
 

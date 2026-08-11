@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import time
 
+from app.services.image_fallback import detect_unrecognized_long_text_regions
 from app.services.image_layout import rebuild_text, span_to_block_ids
 from app.services.image_matcher import ImageMatch, match_rebuilt_text
 from app.services.image_masker import (
@@ -62,6 +63,16 @@ def desensitize_image_base64(
             replaced.append({"rule": "NER 人名" if entity["kind"] == "PER" else "NER 地址", "placeholder": placeholder, "occurrences": 1})
 
     regions = regions_for_matches(blocks, matches)
+    fallback_regions = detect_unrecognized_long_text_regions(original, blocks)
+    if fallback_regions:
+        regions.extend(fallback_regions)
+        replaced.append(
+            {
+                "rule": "OCR 漏检长文本行",
+                "placeholder": "[IMAGE_TEXT_LINE]",
+                "occurrences": len(fallback_regions),
+            }
+        )
     masked = apply_masks(original, regions)
     elapsed_ms = (time.perf_counter() - start) * 1000
 
@@ -74,6 +85,7 @@ def desensitize_image_base64(
             "ocr_blocks": len(blocks),
             "rebuilt_text_length": len(rebuilt.text),
             "normalized_matching": True,
+            "fallback_masked_lines": len(fallback_regions),
             "resized": scale != 1.0,
             "scale": round(scale, 6),
             "ocr": image_ocr_engine.info(),

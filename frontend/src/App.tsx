@@ -36,6 +36,30 @@ export default function App() {
     loadRules()
   }, [loadRules])
 
+  useEffect(() => {
+    let cancelled = false
+
+    const refreshWhenFrontendIsStale = async () => {
+      if (!appVersion || appVersion === 'unknown') return
+      try {
+        const info = await api.about()
+        if (cancelled || !info.app_version || info.app_version === appVersion) return
+
+        const reloadKey = `desensitize-reloaded-${info.app_version}`
+        if (sessionStorage.getItem(reloadKey) === '1') return
+        sessionStorage.setItem(reloadKey, '1')
+        window.location.reload()
+      } catch {
+        // Keep the app usable when the backend is still starting.
+      }
+    }
+
+    refreshWhenFrontendIsStale()
+    return () => {
+      cancelled = true
+    }
+  }, [appVersion])
+
   const openAbout = async () => {
     setAboutOpen(true)
     setAboutError('')

@@ -102,7 +102,6 @@ export default function RulesPage({ rules, onRefresh }: Props) {
   }
 
   const handleToggle = async (rule: Rule) => {
-    if (rule.builtin) return
     try {
       await api.updateRule(rule.id, { enabled: !rule.enabled })
       onRefresh()
@@ -135,7 +134,7 @@ export default function RulesPage({ rules, onRefresh }: Props) {
         <div className="card-title" style={{ marginBottom: '8px' }}>
           内置规则 ({builtinRules.length})
           <span style={{ fontSize: '12px', color: 'var(--text-secondary)', fontWeight: 'normal', marginLeft: '8px' }}>
-            不可修改、不可删除
+            可启用/停用，不可修改、不可删除
           </span>
         </div>
       </div>
@@ -149,6 +148,11 @@ export default function RulesPage({ rules, onRefresh }: Props) {
               {rule.enabled ? '启用' : '禁用'}
             </span>
             <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>优先级: {rule.priority}</span>
+            <div className="rule-actions">
+              <button className="btn btn-sm" onClick={() => handleToggle(rule)}>
+                {rule.enabled ? '停用' : '启用'}
+              </button>
+            </div>
           </div>
           {rule.description && <div className="rule-description">{rule.description}</div>}
           <div>
@@ -189,7 +193,7 @@ export default function RulesPage({ rules, onRefresh }: Props) {
               <div className="rule-actions">
                 <button className="btn btn-sm" onClick={() => openEdit(rule)}>编辑</button>
                 <button className="btn btn-sm" onClick={() => handleToggle(rule)}>
-                  {rule.enabled ? '禁用' : '启用'}
+                  {rule.enabled ? '停用' : '启用'}
                 </button>
                 <button className="btn btn-sm btn-danger" onClick={() => handleDelete(rule.id)}>删除</button>
               </div>

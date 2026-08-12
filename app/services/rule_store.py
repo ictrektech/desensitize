@@ -4,7 +4,7 @@ rule_store.py
 
 规则存储管理。
 
-- 内置规则: 硬编码在 BUILTIN_RULES 中，不可删除
+- 内置规则: 硬编码在 BUILTIN_RULES 中，不可修改/删除，启停状态可持久化
 - 自定义规则: 持久化到 JSON 文件，支持增删改查
 """
 
@@ -19,6 +19,7 @@ logger = logging.getLogger("ictrek-desensitize.rule_store")
 
 DATA_DIR = Path(os.environ.get("DESENSITIZE_DATA_DIR", "/data"))
 RULES_FILE = DATA_DIR / "custom_rules.json"
+BUILTIN_STATE_FILE = DATA_DIR / "builtin_rule_state.json"
 
 
 # ──────────────────────────────────────
@@ -217,6 +218,7 @@ class RuleStore:
     def reload(self):
         """重新加载内置规则和自定义规则。"""
         self._builtin = [dict(r) for r in BUILTIN_RULES]
+        self._apply_builtin_state()
         self._custom = self._load_custom()
         self._compile_all()
         self._loaded = True
@@ -237,6 +239,32 @@ class RuleStore:
         except Exception as e:
             logger.error("加载自定义规则失败: %s", e)
         return []
+
+    def _load_builtin_state(self) -> dict[str, bool]:
+        if not BUILTIN_STATE_FILE.exists():
+            return {}
+        try:
+            with open(BUILTIN_STATE_FILE, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            if isinstance(data, dict):
+                return {str(k): bool(v) for k, v in data.items()}
+        except Exception as e:
+            logger.error("加载内置规则状态失败: %s", e)
+        return {}
+
+    def _apply_builtin_state(self):
+        state = self._load_builtin_state()
+        if not state:
+            return
+        for rule in self._builtin:
+            if rule["id"] in state:
+                rule["enabled"] = state[rule["id"]]
+
+    def _save_builtin_state(self):
+        DATA_DIR.mkdir(parents=True, exist_ok=True)
+        state = {rule["id"]: bool(rule.get("enabled", True)) for rule in self._builtin}
+        with open(BUILTIN_STATE_FILE, "w", encoding="utf-8") as f:
+            json.dump(state, f, ensure_ascii=False, indent=2)
 
     def _save_custom(self):
         DATA_DIR.mkdir(parents=True, exist_ok=True)
@@ -305,6 +333,15 @@ class RuleStore:
                         logger.error("规则 %s 正则编译失败: %s", rule_id, e)
                 self._save_custom()
                 return r
+        return None
+
+    def update_builtin_enabled(self, rule_id: str, enabled: bool) -> Optional[dict]:
+        self._ensure_loaded()
+        for rule in self._builtin:
+            if rule["id"] == rule_id:
+                rule["enabled"] = enabled
+                self._save_builtin_state()
+                return rule
         return None
 
     def delete_custom_rule(self, rule_id: str) -> bool:

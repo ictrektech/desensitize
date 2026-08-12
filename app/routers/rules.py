@@ -8,7 +8,7 @@ rules.py
 - GET /api/v1/rules: 列出所有规则
 - GET /api/v1/rules/{rule_id}: 查看单个规则
 - POST /api/v1/rules: 创建自定义规则
-- PUT /api/v1/rules/{rule_id}: 更新自定义规则
+- PUT /api/v1/rules/{rule_id}: 更新规则（内置规则仅支持启停，自定义规则支持完整更新）
 - DELETE /api/v1/rules/{rule_id}: 删除自定义规则
 - POST /api/v1/rules/test: 测试规则正则
 """
@@ -64,15 +64,19 @@ async def create_rule(body: RuleCreate):
     return created
 
 
-@router.put("/{rule_id}", response_model=RuleOut, summary="更新自定义规则")
+@router.put("/{rule_id}", response_model=RuleOut, summary="更新规则")
 async def update_rule(rule_id: str, body: RuleUpdate):
     existing = rule_store.get_rule(rule_id)
     if existing is None:
         raise HTTPException(status_code=404, detail=f"Rule {rule_id} not found")
-    if existing.get("builtin"):
-        raise HTTPException(status_code=403, detail="Cannot modify builtin rules")
 
     updates = body.model_dump(exclude_none=True)
+    if existing.get("builtin"):
+        if set(updates) != {"enabled"}:
+            raise HTTPException(status_code=403, detail="Builtin rules only support enabled updates")
+        updated = rule_store.update_builtin_enabled(rule_id, updates["enabled"])
+        logger.info("更新内置规则启停状态: %s -> %s", rule_id, updates["enabled"])
+        return updated
 
     if "pattern" in updates:
         try:

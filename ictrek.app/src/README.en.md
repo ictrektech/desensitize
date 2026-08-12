@@ -31,6 +31,16 @@ Iframe URL: `/app/com.ictrek.desensitize/`
 Both values are API base URLs. Append `/api/v1/desensitize/text` for single-text
 desensitization. Traefik removes `/api/com.ictrek.desensitize` before forwarding.
 
+## Rule Management
+
+Built-in rules cover common sensitive data such as phone numbers, ID cards,
+email addresses, bank cards, API keys, bearer tokens, credentials, IP addresses,
+sensitive URL parameters, taxpayer IDs, invoice numbers, order numbers, and
+tracking numbers. Built-in rules cannot be edited or deleted, but each rule can
+be enabled or disabled individually. Custom rules can be created, edited,
+deleted, enabled, and disabled. Rule enabled states are persisted and remain the
+same after restart or the next login.
+
 ## Model Dependencies through Model Hub
 
 NER and image OCR weights are not embedded in this image. On startup the service
@@ -103,7 +113,7 @@ OCR is conservative by default for weaker devices:
 | --- | --- | --- |
 | `/api/v1/rules` | GET | List all rules |
 | `/api/v1/rules` | POST | Create custom rule |
-| `/api/v1/rules/{id}` | PUT | Update custom rule |
+| `/api/v1/rules/{id}` | PUT | Update a rule; built-in rules only allow enable/disable, custom rules allow full updates |
 | `/api/v1/rules/{id}` | DELETE | Delete custom rule |
 | `/api/v1/rules/test` | POST | Test regex pattern |
 | `/api/v1/desensitize` | POST | Batch desensitize messages |

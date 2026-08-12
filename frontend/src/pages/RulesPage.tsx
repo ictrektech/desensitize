@@ -144,17 +144,15 @@ export default function RulesPage({ rules, onRefresh }: Props) {
             <span className="rule-name">{rule.name}</span>
             <span className="badge badge-builtin">内置</span>
             {categoryBadge(rule.category)}
-            <span className={`badge ${rule.enabled ? 'badge-enabled' : 'badge-disabled'}`}>
-              {rule.enabled ? '已启用' : '已停用'}
-            </span>
             <button
-              className={`rule-toggle ${rule.enabled ? 'active' : ''}`}
+              className={`rule-switch ${rule.enabled ? 'active' : ''}`}
               onClick={() => handleToggle(rule)}
               aria-pressed={rule.enabled}
               title={rule.enabled ? '停用此规则' : '启用此规则'}
             >
-              <span className="rule-toggle-dot" />
-              {rule.enabled ? '停用' : '启用'}
+              <span className="rule-switch-label">开关</span>
+              <span className="rule-switch-dot" />
+              <span>{rule.enabled ? '已启用，点此停用' : '已停用，点此启用'}</span>
             </button>
             <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>优先级: {rule.priority}</span>
           </div>
@@ -190,17 +188,15 @@ export default function RulesPage({ rules, onRefresh }: Props) {
               <span className="rule-name">{rule.name}</span>
               <span className="badge badge-custom">自定义</span>
               {categoryBadge(rule.category)}
-              <span className={`badge ${rule.enabled ? 'badge-enabled' : 'badge-disabled'}`}>
-                {rule.enabled ? '已启用' : '已停用'}
-              </span>
               <button
-                className={`rule-toggle ${rule.enabled ? 'active' : ''}`}
+                className={`rule-switch ${rule.enabled ? 'active' : ''}`}
                 onClick={() => handleToggle(rule)}
                 aria-pressed={rule.enabled}
                 title={rule.enabled ? '停用此规则' : '启用此规则'}
               >
-                <span className="rule-toggle-dot" />
-                {rule.enabled ? '停用' : '启用'}
+                <span className="rule-switch-label">开关</span>
+                <span className="rule-switch-dot" />
+                <span>{rule.enabled ? '已启用，点此停用' : '已停用，点此启用'}</span>
               </button>
               <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>优先级: {rule.priority}</span>
               <div className="rule-actions">

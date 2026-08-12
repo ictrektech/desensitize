@@ -145,14 +145,18 @@ export default function RulesPage({ rules, onRefresh }: Props) {
             <span className="badge badge-builtin">内置</span>
             {categoryBadge(rule.category)}
             <span className={`badge ${rule.enabled ? 'badge-enabled' : 'badge-disabled'}`}>
-              {rule.enabled ? '启用' : '禁用'}
+              {rule.enabled ? '已启用' : '已停用'}
             </span>
+            <button
+              className={`rule-toggle ${rule.enabled ? 'active' : ''}`}
+              onClick={() => handleToggle(rule)}
+              aria-pressed={rule.enabled}
+              title={rule.enabled ? '停用此规则' : '启用此规则'}
+            >
+              <span className="rule-toggle-dot" />
+              {rule.enabled ? '停用' : '启用'}
+            </button>
             <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>优先级: {rule.priority}</span>
-            <div className="rule-actions">
-              <button className="btn btn-sm" onClick={() => handleToggle(rule)}>
-                {rule.enabled ? '停用' : '启用'}
-              </button>
-            </div>
           </div>
           {rule.description && <div className="rule-description">{rule.description}</div>}
           <div>
@@ -171,7 +175,7 @@ export default function RulesPage({ rules, onRefresh }: Props) {
         <div className="card-title" style={{ marginBottom: '8px' }}>
           自定义规则 ({customRules.length})
           <span style={{ fontSize: '12px', color: 'var(--text-secondary)', fontWeight: 'normal', marginLeft: '8px' }}>
-            可添加、修改、删除
+            可添加、修改、删除、启用/停用
           </span>
         </div>
       </div>
@@ -187,14 +191,20 @@ export default function RulesPage({ rules, onRefresh }: Props) {
               <span className="badge badge-custom">自定义</span>
               {categoryBadge(rule.category)}
               <span className={`badge ${rule.enabled ? 'badge-enabled' : 'badge-disabled'}`}>
-                {rule.enabled ? '启用' : '禁用'}
+                {rule.enabled ? '已启用' : '已停用'}
               </span>
+              <button
+                className={`rule-toggle ${rule.enabled ? 'active' : ''}`}
+                onClick={() => handleToggle(rule)}
+                aria-pressed={rule.enabled}
+                title={rule.enabled ? '停用此规则' : '启用此规则'}
+              >
+                <span className="rule-toggle-dot" />
+                {rule.enabled ? '停用' : '启用'}
+              </button>
               <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>优先级: {rule.priority}</span>
               <div className="rule-actions">
                 <button className="btn btn-sm" onClick={() => openEdit(rule)}>编辑</button>
-                <button className="btn btn-sm" onClick={() => handleToggle(rule)}>
-                  {rule.enabled ? '停用' : '启用'}
-                </button>
                 <button className="btn btn-sm btn-danger" onClick={() => handleDelete(rule.id)}>删除</button>
               </div>
             </div>

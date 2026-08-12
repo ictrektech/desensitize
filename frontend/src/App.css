@@ -185,6 +185,44 @@ body {
   margin-left: auto;
 }
 
+.rule-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: white;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.4;
+  transition: all 0.2s;
+}
+
+.rule-toggle:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.rule-toggle.active {
+  background: #f0fff4;
+  border-color: #9ae6b4;
+  color: #276749;
+}
+
+.rule-toggle-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #a0aec0;
+}
+
+.rule-toggle.active .rule-toggle-dot {
+  background: #38a169;
+}
+
 .btn {
   padding: 6px 14px;
   border-radius: var(--radius);

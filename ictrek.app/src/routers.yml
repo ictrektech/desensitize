@@ -15,6 +15,6 @@ routers:
         icon: lucide:shield-check
         iframe-src: /app/com.ictrek.desensitize/
         order: 40
-        keep-alive: true
+        keep-alive: false
         entry-point: true
         embed: true

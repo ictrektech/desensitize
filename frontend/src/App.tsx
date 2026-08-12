@@ -148,6 +148,7 @@ export default function App() {
                 <tr><th>NER 并发</th><td>{about?.ner ? `${about.ner.max_concurrency}，排队 ${about.ner.queue_timeout_seconds}s` : '-'}</td></tr>
                 <tr><th>NER 模型</th><td className="mono-cell">{about?.ner?.model_id || '-'}</td></tr>
                 <tr><th>图片 OCR</th><td>{about?.image_ocr ? `${about.image_ocr.state} / ${about.image_ocr.enabled ? 'enabled' : 'disabled'} / ${about.image_ocr.provider}` : '-'}</td></tr>
+                <tr><th>OCR Provider</th><td>{about?.image_ocr?.active_providers ? Object.entries(about.image_ocr.active_providers).map(([name, providers]) => `${name}: ${providers[0] || '-'}`).join(' / ') : about?.image_ocr?.provider || '-'}</td></tr>
                 <tr><th>OCR 并发</th><td>{about?.image_ocr ? `${about.image_ocr.max_concurrency}，排队 ${about.image_ocr.queue_timeout_seconds}s` : '-'}</td></tr>
                 <tr><th>OCR 模型</th><td className="mono-cell">{about?.image_ocr?.model_id || '-'}</td></tr>
               </tbody>

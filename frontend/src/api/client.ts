@@ -51,6 +51,7 @@ export interface AboutInfo {
   image_ocr?: {
     enabled: boolean;
     provider: string;
+    active_providers?: Record<string, string[]>;
     state: string;
     model_id: string;
     model_dir: string;

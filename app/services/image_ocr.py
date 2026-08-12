@@ -40,6 +40,7 @@ class RapidOcrEngine:
         self._semaphore = threading.BoundedSemaphore(self.max_concurrency)
         self._lock = threading.Lock()
         self._ocr: Any | None = None
+        self._active_providers: dict[str, list[str]] = {}
         self._error: str | None = None
         self._state = "disabled" if not self.enabled else "checking"
         self._state_lock = threading.Lock()
@@ -71,6 +72,7 @@ class RapidOcrEngine:
         return {
             "enabled": self.enabled,
             "provider": self.provider,
+            "active_providers": self._active_providers,
             "state": self._state,
             "model_id": self.model_id,
             "model_dir": str(self.model_dir),
@@ -160,23 +162,18 @@ class RapidOcrEngine:
                 if missing:
                     raise OcrUnavailable("Model Hub OCR model is missing: " + ", ".join(missing))
 
-                providers = _providers_for(self.provider)
-                try:
-                    self._ocr = RapidOCR(
-                        providers=providers,
-                        det_model_path=str(det_model),
-                        rec_model_path=str(rec_model),
-                        cls_model_path=str(cls_model),
-                    )
-                except TypeError:
-                    self._ocr = RapidOCR(
-                        det_model_path=str(det_model),
-                        rec_model_path=str(rec_model),
-                        cls_model_path=str(cls_model),
-                    )
+                self._ocr = RapidOCR(
+                    det_model_path=str(det_model),
+                    rec_model_path=str(rec_model),
+                    cls_model_path=str(cls_model),
+                    **_rapidocr_provider_kwargs(self.provider),
+                )
+                self._active_providers = _rapidocr_active_providers(self._ocr)
+                if self.provider == "cuda" and not _rapidocr_uses_cuda(self._active_providers):
+                    raise OcrUnavailable(f"CUDAExecutionProvider is unavailable for RapidOCR: {self._active_providers}")
                 self._error = None
                 self._set_state("ready")
-                logger.info("RapidOCR initialized: provider=%s model=%s", self.provider, self.model_dir)
+                logger.info("RapidOCR initialized: provider=%s active=%s model=%s", self.provider, self._active_providers, self.model_dir)
                 return self._ocr
             except Exception as exc:
                 self._set_state("unavailable", str(exc))
@@ -184,12 +181,32 @@ class RapidOcrEngine:
                 raise OcrUnavailable(f"image OCR unavailable: {exc}") from exc
 
 
-def _providers_for(provider: str) -> list[str] | None:
+def _rapidocr_provider_kwargs(provider: str) -> dict[str, bool]:
     if provider == "cuda":
-        return ["CUDAExecutionProvider", "CPUExecutionProvider"]
+        return {"det_use_cuda": True, "rec_use_cuda": True, "cls_use_cuda": True}
     if provider == "cpu":
-        return ["CPUExecutionProvider"]
-    return None
+        return {"det_use_cuda": False, "rec_use_cuda": False, "cls_use_cuda": False}
+    return {}
+
+
+def _rapidocr_active_providers(ocr: Any) -> dict[str, list[str]]:
+    providers: dict[str, list[str]] = {}
+    targets = {
+        "det": (getattr(getattr(ocr, "text_det", None), "infer", None)),
+        "cls": (getattr(getattr(ocr, "text_cls", None), "infer", None)),
+        "rec": (getattr(getattr(ocr, "text_rec", None), "session", None)),
+    }
+    for name, infer in targets.items():
+        session = getattr(infer, "session", None)
+        if session is not None and hasattr(session, "get_providers"):
+            providers[name] = list(session.get_providers())
+    return providers
+
+
+def _rapidocr_uses_cuda(active_providers: dict[str, list[str]]) -> bool:
+    if not active_providers:
+        return False
+    return all(providers and providers[0] == "CUDAExecutionProvider" for providers in active_providers.values())
 
 
 def _parse_rapidocr_result(result: Any) -> list[OcrBlock]:

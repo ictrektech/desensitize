@@ -1,0 +1,176 @@
+{
+  "workers": 4,
+  "requests": 18,
+  "success": 18,
+  "duration_s": 8.725647993007442,
+  "throughput_rps": 2.062884041898646,
+  "wall_avg_ms": 1825.1892248889717,
+  "api_avg_ms": 1769.3444444444444,
+  "avg_replaced": 13.833333333333334,
+  "avg_coords": 15.333333333333334,
+  "avg_ocr_blocks": 12,
+  "results": [
+    {
+      "file": "01_id_card_like.jpg",
+      "status": 200,
+      "wall_ms": 1223.4320209972793,
+      "api_ms": 1202.16,
+      "replaced": 15,
+      "coords": 17,
+      "ocr_blocks": 18
+    },
+    {
+      "file": "02_invoice_dense.jpg",
+      "status": 200,
+      "wall_ms": 1847.720661011408,
+      "api_ms": 1826.62,
+      "replaced": 17,
+      "coords": 21,
+      "ocr_blocks": 12
+    },
+    {
+      "file": "03_shipping_label_skew.jpg",
+      "status": 200,
+      "wall_ms": 2098.0447699985234,
+      "api_ms": 2057.16,
+      "replaced": 13,
+      "coords": 16,
+      "ocr_blocks": 14
+    },
+    {
+      "file": "04_chat_screenshot.jpg",
+      "status": 200,
+      "wall_ms": 2251.171573996544,
+      "api_ms": 2227.98,
+      "replaced": 15,
+      "coords": 15,
+      "ocr_blocks": 14
+    },
+    {
+      "file": "05_photo_form_noisy.jpg",
+      "status": 200,
+      "wall_ms": 2123.1596909929067,
+      "api_ms": 2066.73,
+      "replaced": 17,
+      "coords": 17,
+      "ocr_blocks": 10
+    },
+    {
+      "file": "06_low_contrast_config.jpg",
+      "status": 200,
+      "wall_ms": 1569.5878359983908,
+      "api_ms": 1553.32,
+      "replaced": 6,
+      "coords": 6,
+      "ocr_blocks": 4
+    },
+    {
+      "file": "02_invoice_dense.jpg",
+      "status": 200,
+      "wall_ms": 1916.0863159922883,
+      "api_ms": 1874.2,
+      "replaced": 17,
+      "coords": 21,
+      "ocr_blocks": 12
+    },
+    {
+      "file": "01_id_card_like.jpg",
+      "status": 200,
+      "wall_ms": 2198.5243590024766,
+      "api_ms": 2132.61,
+      "replaced": 15,
+      "coords": 17,
+      "ocr_blocks": 18
+    },
+    {
+      "file": "06_low_contrast_config.jpg",
+      "status": 200,
+      "wall_ms": 1239.9612029985292,
+      "api_ms": 1046.21,
+      "replaced": 6,
+      "coords": 6,
+      "ocr_blocks": 4
+    },
+    {
+      "file": "03_shipping_label_skew.jpg",
+      "status": 200,
+      "wall_ms": 2252.1349510061555,
+      "api_ms": 2143.34,
+      "replaced": 13,
+      "coords": 16,
+      "ocr_blocks": 14
+    },
+    {
+      "file": "04_chat_screenshot.jpg",
+      "status": 200,
+      "wall_ms": 2389.96821299952,
+      "api_ms": 2364.48,
+      "replaced": 15,
+      "coords": 15,
+      "ocr_blocks": 14
+    },
+    {
+      "file": "05_photo_form_noisy.jpg",
+      "status": 200,
+      "wall_ms": 1828.252009989228,
+      "api_ms": 1775.8,
+      "replaced": 17,
+      "coords": 17,
+      "ocr_blocks": 10
+    },
+    {
+      "file": "02_invoice_dense.jpg",
+      "status": 200,
+      "wall_ms": 1713.7408269918524,
+      "api_ms": 1603.8,
+      "replaced": 17,
+      "coords": 21,
+      "ocr_blocks": 12
+    },
+    {
+      "file": "01_id_card_like.jpg",
+      "status": 200,
+      "wall_ms": 1878.3499450073577,
+      "api_ms": 1782.69,
+      "replaced": 15,
+      "coords": 17,
+      "ocr_blocks": 18
+    },
+    {
+      "file": "03_shipping_label_skew.jpg",
+      "status": 200,
+      "wall_ms": 2020.738799998071,
+      "api_ms": 1978.98,
+      "replaced": 13,
+      "coords": 16,
+      "ocr_blocks": 14
+    },
+    {
+      "file": "04_chat_screenshot.jpg",
+      "status": 200,
+      "wall_ms": 1946.2465030082967,
+      "api_ms": 1930.7,
+      "replaced": 15,
+      "coords": 15,
+      "ocr_blocks": 14
+    },
+    {
+      "file": "06_low_contrast_config.jpg",
+      "status": 200,
+      "wall_ms": 960.7239380129613,
+      "api_ms": 947.01,
+      "replaced": 6,
+      "coords": 6,
+      "ocr_blocks": 4
+    },
+    {
+      "file": "05_photo_form_noisy.jpg",
+      "status": 200,
+      "wall_ms": 1395.5624299996998,
+      "api_ms": 1334.41,
+      "replaced": 17,
+      "coords": 17,
+      "ocr_blocks": 10
+    }
+  ]
+}

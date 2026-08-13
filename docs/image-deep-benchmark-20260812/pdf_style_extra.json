@@ -1,0 +1,196 @@
+{
+  "single_request_30x": {
+    "simple_low_contrast": {
+      "rules": {
+        "requests": 30,
+        "success": 30,
+        "errors": 0,
+        "wall_ms": {
+          "avg": 398.24,
+          "p50": 393.06,
+          "p95": 415.54,
+          "p99": 552.19,
+          "max": 552.19
+        },
+        "api_ms": {
+          "avg": 389.08,
+          "p50": 384.08,
+          "p95": 405.27,
+          "p99": 542.37,
+          "max": 542.37
+        },
+        "avg_replaced": 6,
+        "avg_coords": 6,
+        "avg_ocr_blocks": 4
+      },
+      "hybrid": {
+        "requests": 30,
+        "success": 30,
+        "errors": 0,
+        "wall_ms": {
+          "avg": 414.91,
+          "p50": 414.94,
+          "p95": 424.54,
+          "p99": 427.37,
+          "max": 427.37
+        },
+        "api_ms": {
+          "avg": 404.41,
+          "p50": 404.14,
+          "p95": 413.45,
+          "p99": 417.44,
+          "max": 417.44
+        },
+        "avg_replaced": 6,
+        "avg_coords": 6,
+        "avg_ocr_blocks": 4
+      }
+    },
+    "medium_shipping": {
+      "rules": {
+        "requests": 30,
+        "success": 30,
+        "errors": 0,
+        "wall_ms": {
+          "avg": 740.17,
+          "p50": 735.23,
+          "p95": 805.99,
+          "p99": 808.94,
+          "max": 808.94
+        },
+        "api_ms": {
+          "avg": 727.09,
+          "p50": 722.93,
+          "p95": 793.67,
+          "p99": 794.82,
+          "max": 794.82
+        },
+        "avg_replaced": 6,
+        "avg_coords": 9,
+        "avg_ocr_blocks": 14
+      },
+      "hybrid": {
+        "requests": 30,
+        "success": 30,
+        "errors": 0,
+        "wall_ms": {
+          "avg": 747.96,
+          "p50": 745.05,
+          "p95": 771.75,
+          "p99": 777.45,
+          "max": 777.45
+        },
+        "api_ms": {
+          "avg": 734.24,
+          "p50": 733.57,
+          "p95": 757.42,
+          "p99": 764.2,
+          "max": 764.2
+        },
+        "avg_replaced": 13,
+        "avg_coords": 16,
+        "avg_ocr_blocks": 14
+      }
+    },
+    "complex_invoice": {
+      "rules": {
+        "requests": 30,
+        "success": 30,
+        "errors": 0,
+        "wall_ms": {
+          "avg": 757.71,
+          "p50": 728.71,
+          "p95": 901.09,
+          "p99": 911.76,
+          "max": 911.76
+        },
+        "api_ms": {
+          "avg": 740.63,
+          "p50": 710.47,
+          "p95": 885.58,
+          "p99": 896.84,
+          "max": 896.84
+        },
+        "avg_replaced": 13,
+        "avg_coords": 17,
+        "avg_ocr_blocks": 12
+      },
+      "hybrid": {
+        "requests": 30,
+        "success": 30,
+        "errors": 0,
+        "wall_ms": {
+          "avg": 750.06,
+          "p50": 744.67,
+          "p95": 804.21,
+          "p99": 806.75,
+          "max": 806.75
+        },
+        "api_ms": {
+          "avg": 733.88,
+          "p50": 728.65,
+          "p95": 784.81,
+          "p99": 792.32,
+          "max": 792.32
+        },
+        "avg_replaced": 17,
+        "avg_coords": 21,
+        "avg_ocr_blocks": 12
+      }
+    }
+  },
+  "sustained_25s": {
+    "rules_4w_25s": {
+      "requests": 56,
+      "success": 56,
+      "errors": 0,
+      "wall_ms": {
+        "avg": 1866.04,
+        "p50": 1785.54,
+        "p95": 3018.55,
+        "p99": 3784.48,
+        "max": 3784.48
+      },
+      "api_ms": {
+        "avg": 1824.82,
+        "p50": 1743.89,
+        "p95": 2925.22,
+        "p99": 3630.94,
+        "max": 3630.94
+      },
+      "avg_replaced": 8.89,
+      "avg_coords": 10.45,
+      "avg_ocr_blocks": 12.11,
+      "workers": 4,
+      "duration_s": 26.72,
+      "throughput_rps": 2.096,
+      "ner": false
+    },
+    "hybrid_4w_25s": {
+      "requests": 59,
+      "success": 59,
+      "errors": 0,
+      "wall_ms": {
+        "avg": 1761.55,
+        "p50": 1784.98,
+        "p95": 2371.86,
+        "p99": 3200.52,
+        "max": 3200.52
+      },
+      "api_ms": {
+        "avg": 1737.17,
+        "p50": 1764.95,
+        "p95": 2340.79,
+        "p99": 3174.38,
+        "max": 3174.38
+      },
+      "avg_replaced": 13.97,
+      "avg_coords": 15.49,
+      "avg_ocr_blocks": 12.14,
+      "workers": 4,
+      "duration_s": 26.52,
+      "throughput_rps": 2.224,
+      "ner": true
+    }
+  }
+}

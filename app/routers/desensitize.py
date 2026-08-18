@@ -8,6 +8,7 @@ desensitize.py
 - POST /api/v1/desensitize: 批量脱敏消息列表
 - POST /api/v1/desensitize/text: 单文本脱敏
 - POST /api/v1/desensitize/image: 图片脱敏
+- POST /api/v1/desensitize/image/restore: 还原可逆脱敏图片
 """
 
 import time
@@ -24,11 +25,15 @@ from app.models.schemas import (
     DesensitizeTextResponse,
     ImageDesensitizeRequest,
     ImageDesensitizeResponse,
+    ImageRestoreRequest,
+    ImageRestoreResponse,
     ReplacedItem,
     Message,
 )
 from app.services.engine import desensitize_text, desensitize_messages
 from app.services.image_engine import desensitize_image_base64
+from app.services.image_ledger import resolve_ledger_key, restore_image
+from app.services.image_masker import encode_image_base64
 from app.services.image_ocr import OcrUnavailable
 from app.services.ner_engine import NerUnavailable
 
@@ -122,6 +127,9 @@ async def desensitize_image_api(body: ImageDesensitizeRequest):
             level=body.level,
             rule_ids=rule_ids,
             ner=body.ner,
+            adaptive=body.adaptive,
+            reversible=body.reversible,
+            ledger_key=body.ledger_key,
             return_coordinates=body.return_coordinates,
             max_side=body.max_side,
         )
@@ -139,4 +147,34 @@ async def desensitize_image_api(body: ImageDesensitizeRequest):
         metadata=result["metadata"],
         latency_ms=result["latency_ms"],
         coordinates=result.get("coordinates"),
+        ledger=result.get("ledger"),
     )
+
+
+@router.post("/image/restore", response_model=ImageRestoreResponse, summary="还原可逆脱敏图片")
+async def restore_image_api(body: ImageRestoreRequest):
+    """
+    用配对账本和密钥还原可逆脱敏图片中被遮挡的原始像素。
+
+    每个遮挡区域独立解密；单个区域失败（密钥错误或数据损坏）只记录在
+    report 中，不中断其余区域的还原。
+    """
+
+    def _restore() -> dict:
+        key = resolve_ledger_key(body.ledger_key)
+        image, report = restore_image(body.image_base64, body.ledger, key)
+        return {
+            "image_base64": encode_image_base64(image, body.mime_type),
+            "mime_type": body.mime_type,
+            "report": report,
+            "restored_count": sum(1 for item in report if item.get("restored")),
+        }
+
+    try:
+        result = await run_in_threadpool(_restore)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except OSError as exc:
+        raise HTTPException(status_code=400, detail=f"invalid image or ledger: {exc}") from exc
+
+    return ImageRestoreResponse(**result)

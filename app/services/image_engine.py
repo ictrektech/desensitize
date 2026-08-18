@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+from collections import Counter
 import time
 
 from app.services.image_fallback import detect_sensitive_field_value_regions, detect_unrecognized_long_text_regions
 from app.services.image_layout import rebuild_text, span_to_block_ids
+from app.services.image_ledger import build_ledger, resolve_ledger_key
 from app.services.image_matcher import ImageMatch, match_rebuilt_text
 from app.services.image_masker import (
     apply_masks,
@@ -16,6 +18,7 @@ from app.services.image_masker import (
     scale_blocks,
 )
 from app.services.image_ocr import image_ocr_engine
+from app.services.image_scene import classify_scene, effective_rule_ids
 from app.services.ner_engine import ner_engine
 
 
@@ -26,6 +29,9 @@ def desensitize_image_base64(
     level: str = "standard",
     rule_ids: list[str] | None = None,
     ner: bool = False,
+    adaptive: bool = False,
+    reversible: bool = False,
+    ledger_key: str | None = None,
     return_coordinates: bool = False,
     max_side: int = 1600,
 ) -> dict:
@@ -38,7 +44,8 @@ def desensitize_image_base64(
     blocks = scale_blocks(detected_blocks, inverse_scale)
 
     rebuilt = rebuild_text(blocks)
-    matches = match_rebuilt_text(rebuilt, rule_ids)
+    scene = classify_scene(blocks, rebuilt) if adaptive else None
+    matches = match_rebuilt_text(rebuilt, effective_rule_ids(scene, rule_ids))
 
     replaced = _matches_to_replaced(matches)
     if ner:
@@ -58,18 +65,25 @@ def desensitize_image_base64(
                     doc_start=entity["start"],
                     doc_end=entity["end"],
                     block_ids=block_ids,
+                    matched_via="ner",
                 )
             )
             replaced.append({"rule": "NER 人名" if entity["kind"] == "PER" else "NER 地址", "placeholder": placeholder, "occurrences": 1})
 
+    policy = scene["policy"] if scene else None
     regions = regions_for_matches(blocks, matches)
-    field_regions = detect_sensitive_field_value_regions(blocks, image_width=original.width)
+
+    field_regions = []
+    if policy is None or policy["field_fallback"]:
+        field_regions = detect_sensitive_field_value_regions(blocks, image_width=original.width)
     if field_regions:
         regions.extend(region for region, _ in field_regions)
         for label in _group_labels(label for _, label in field_regions):
             replaced.append({"rule": label[0], "placeholder": "[FIELD_VALUE]", "occurrences": label[1]})
 
-    fallback_regions = detect_unrecognized_long_text_regions(original, blocks)
+    fallback_regions = []
+    if policy is None or policy["pixel_fallback"]:
+        fallback_regions = detect_unrecognized_long_text_regions(original, blocks)
     if fallback_regions:
         regions.extend(fallback_regions)
         replaced.append(
@@ -79,6 +93,10 @@ def desensitize_image_base64(
                 "occurrences": len(fallback_regions),
             }
         )
+
+    ledger = None
+    if reversible:
+        ledger = build_ledger(original, regions, resolve_ledger_key(ledger_key))
     masked = apply_masks(original, regions)
     elapsed_ms = (time.perf_counter() - start) * 1000
 
@@ -91,6 +109,17 @@ def desensitize_image_base64(
             "ocr_blocks": len(blocks),
             "rebuilt_text_length": len(rebuilt.text),
             "normalized_matching": True,
+            "matched_via": dict(Counter(m.matched_via for m in matches)),
+            "adaptive": adaptive,
+            "scene": (
+                {
+                    "type": scene["type"],
+                    "signal_counts": scene["signal_counts"],
+                    "policy": {key: value for key, value in scene["policy"].items()},
+                }
+                if scene
+                else None
+            ),
             "field_fallback_regions": len(field_regions),
             "fallback_masked_lines": len(fallback_regions),
             "resized": scale != 1.0,
@@ -99,6 +128,8 @@ def desensitize_image_base64(
         },
         "latency_ms": round(elapsed_ms, 2),
     }
+    if ledger is not None:
+        response["ledger"] = ledger
     if return_coordinates:
         response["coordinates"] = [
             {

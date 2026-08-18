@@ -7,7 +7,7 @@ import re
 from PIL import Image, ImageOps
 
 from app.services.image_layout import OcrBlock, Point, Rect
-from app.services.image_masker import MaskRegion
+from app.services.image_masker import MaskRegion, hull_region
 
 
 SENSITIVE_FIELD_LABELS: tuple[tuple[re.Pattern[str], str], ...] = (
@@ -216,11 +216,17 @@ def _looks_like_field_value(text: str) -> bool:
 
 
 def _region_for_blocks(blocks: list[OcrBlock], *, padding: float, image_width: int) -> MaskRegion:
-    x1 = min(b.bbox.x1 for b in blocks) - padding
-    y1 = min(b.bbox.y1 for b in blocks) - padding
-    x2 = max(b.bbox.x2 for b in blocks) + padding
-    y2 = max(b.bbox.y2 for b in blocks) + padding
-    box = Rect(max(0.0, x1), max(0.0, y1), min(float(image_width), x2), y2)
+    # The hull keeps the mask tight around skewed field values; drawing beyond
+    # the image edge is clipped by PIL and ledger crops are clamped separately.
+    del image_width
+    region = hull_region([b.quad for b in blocks], padding)
+    if region is not None:
+        return region
+    x1 = min(b.bbox.x1 for b in blocks)
+    y1 = min(b.bbox.y1 for b in blocks)
+    x2 = max(b.bbox.x2 for b in blocks)
+    y2 = max(b.bbox.y2 for b in blocks)
+    box = Rect(x1, y1, x2, y2)
     quad = [
         Point(box.x1, box.y1),
         Point(box.x2, box.y1),

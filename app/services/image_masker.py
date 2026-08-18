@@ -5,6 +5,7 @@ from __future__ import annotations
 import base64
 import binascii
 import io
+import math
 from dataclasses import dataclass
 
 from PIL import Image, ImageDraw
@@ -63,6 +64,69 @@ def scale_blocks(blocks: list[OcrBlock], inverse_scale: float) -> list[OcrBlock]
     return scaled
 
 
+def convex_hull(points: list[Point]) -> list[Point]:
+    """Andrew's monotone chain; returns hull vertices in counter-clockwise order."""
+
+    unique = sorted({(p.x, p.y) for p in points})
+    if len(unique) <= 2:
+        return [Point(x, y) for x, y in unique]
+
+    def _cross(o, a, b):
+        return (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0])
+
+    lower: list[tuple[float, float]] = []
+    for p in unique:
+        while len(lower) >= 2 and _cross(lower[-2], lower[-1], p) <= 0:
+            lower.pop()
+        lower.append(p)
+    upper: list[tuple[float, float]] = []
+    for p in reversed(unique):
+        while len(upper) >= 2 and _cross(upper[-2], upper[-1], p) <= 0:
+            upper.pop()
+        upper.append(p)
+    return [Point(x, y) for x, y in lower[:-1] + upper[:-1]]
+
+
+def expand_quad(quad: list[Point], padding: float) -> list[Point]:
+    """Push each vertex away from the polygon centroid by `padding` pixels."""
+
+    if not quad or padding <= 0:
+        return list(quad)
+    cx = sum(p.x for p in quad) / len(quad)
+    cy = sum(p.y for p in quad) / len(quad)
+    expanded: list[Point] = []
+    for p in quad:
+        dx, dy = p.x - cx, p.y - cy
+        length = math.hypot(dx, dy) or 1.0
+        expanded.append(Point(p.x + dx / length * padding, p.y + dy / length * padding))
+    return expanded
+
+
+def hull_region(quads: list[list[Point]], padding: float) -> MaskRegion | None:
+    """Tight hull over padded source quads: skewed text gets a skewed mask."""
+
+    points: list[Point] = []
+    for quad in quads:
+        points.extend(expand_quad(quad, padding))
+    if not points:
+        return None
+    hull = convex_hull(points)
+    xs = [p.x for p in hull]
+    ys = [p.y for p in hull]
+    if len(hull) < 3:
+        # Degenerate (collinear) text line: fall back to its bounding box.
+        hull = [
+            Point(min(xs), min(ys)),
+            Point(max(xs), min(ys)),
+            Point(max(xs), max(ys)),
+            Point(min(xs), max(ys)),
+        ]
+        xs = [p.x for p in hull]
+        ys = [p.y for p in hull]
+    box = Rect(min(xs), min(ys), max(xs), max(ys))
+    return MaskRegion(box, hull)
+
+
 def regions_for_matches(blocks: list[OcrBlock], matches: list[ImageMatch], padding: float = 3.0) -> list[MaskRegion]:
     regions: list[MaskRegion] = []
     by_id = {b.block_id: b for b in blocks}
@@ -76,13 +140,9 @@ def regions_for_matches(blocks: list[OcrBlock], matches: list[ImageMatch], paddi
         for group in line_groups.values():
             if not group:
                 continue
-            x1 = min(b.bbox.x1 for b in group) - padding
-            y1 = min(b.bbox.y1 for b in group) - padding
-            x2 = max(b.bbox.x2 for b in group) + padding
-            y2 = max(b.bbox.y2 for b in group) + padding
-            box = Rect(x1, y1, x2, y2)
-            quad = [Point(x1, y1), Point(x2, y1), Point(x2, y2), Point(x1, y2)]
-            regions.append(MaskRegion(box, quad))
+            region = hull_region([b.quad for b in group], padding)
+            if region is not None:
+                regions.append(region)
     return regions
 
 

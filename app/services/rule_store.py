@@ -103,6 +103,7 @@ BUILTIN_RULES = [
         "enabled": True,
         "builtin": True,
         "category": "pii",
+        "validator": "china_id",
     },
     {
         "id": "bank_card",
@@ -114,6 +115,7 @@ BUILTIN_RULES = [
         "enabled": True,
         "builtin": True,
         "category": "pii",
+        "validator": "luhn",
     },
     {
         "id": "phone_cn",
@@ -125,6 +127,7 @@ BUILTIN_RULES = [
         "enabled": True,
         "builtin": True,
         "category": "pii",
+        "validator": "cn_mobile",
     },
     {
         "id": "email",

@@ -57,6 +57,24 @@ class CharMap:
     synthetic: bool = False
 
 
+# Common OCR confusions between digits and lookalike letters. Mapping is 1:1,
+# so offsets into confused_text align with compact_to_doc directly.
+CONFUSION_MAP = {
+    "O": "0",
+    "o": "0",
+    "l": "1",
+    "I": "1",
+    "i": "1",
+    "Z": "2",
+    "z": "2",
+    "S": "5",
+    "s": "5",
+    "G": "6",
+    "B": "8",
+    "g": "9",
+}
+
+
 @dataclass
 class RebuiltText:
     text: str
@@ -64,6 +82,7 @@ class RebuiltText:
     char_maps: list[CharMap]
     compact_text: str
     compact_to_doc: list[int]
+    confused_text: str = ""
 
 
 def rect_from_quad(quad: list[Point]) -> Rect:
@@ -147,12 +166,15 @@ def rebuild_text(blocks: list[OcrBlock]) -> RebuiltText:
         compact_chars.append(char)
         compact_to_doc.append(i)
 
+    confused_text = "".join(CONFUSION_MAP.get(char, char) for char in compact_chars)
+
     return RebuiltText(
         text=text,
         blocks=clean_blocks,
         char_maps=char_maps,
         compact_text="".join(compact_chars),
         compact_to_doc=compact_to_doc,
+        confused_text=confused_text,
     )
 
 

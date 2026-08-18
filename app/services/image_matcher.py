@@ -1,4 +1,4 @@
-"""Rule matching for reconstructed OCR text."""
+"""Rule matching for reconstructed OCR text across multiple match spaces."""
 
 from __future__ import annotations
 
@@ -7,6 +7,7 @@ import re
 
 from app.services.image_layout import RebuiltText, compact_span_to_doc_span, span_to_block_ids
 from app.services.rule_store import rule_store
+from app.services.validators import VALIDATORS
 
 
 @dataclass(frozen=True)
@@ -17,6 +18,7 @@ class ImageMatch:
     doc_start: int
     doc_end: int
     block_ids: list[int]
+    matched_via: str = "text"
 
 
 def _overlaps(existing: list[ImageMatch], start: int, end: int) -> bool:
@@ -36,11 +38,25 @@ def match_rebuilt_text(rebuilt: RebuiltText, rule_ids: list[str] | None = None) 
         if compiled is None:
             continue
 
-        _append_matches(matches, rebuilt, rule, compiled, rebuilt.text, compact=False)
+        _append_matches(matches, rebuilt, rule, compiled, rebuilt.text, space="text")
         # A second pass on compact text fixes OCR block fragmentation where the
         # visible value is split by spaces/newlines between OCR blocks.
         if rebuilt.compact_text != rebuilt.text:
-            _append_matches(matches, rebuilt, rule, compiled, rebuilt.compact_text, compact=True)
+            _append_matches(matches, rebuilt, rule, compiled, rebuilt.compact_text, space="compact")
+        # A third pass on confusion-normalized text catches digit values whose
+        # lookalike letters broke both passes above; validator rules gate the
+        # extra false-positive surface introduced by normalization.
+        validator_name = rule.get("validator")
+        if validator_name and rebuilt.confused_text != rebuilt.compact_text:
+            _append_matches(
+                matches,
+                rebuilt,
+                rule,
+                compiled,
+                rebuilt.confused_text,
+                space="confused",
+                validator_name=validator_name,
+            )
 
     matches.sort(key=lambda m: (m.doc_start, -(m.doc_end - m.doc_start)))
     return matches
@@ -53,15 +69,21 @@ def _append_matches(
     compiled: re.Pattern,
     text: str,
     *,
-    compact: bool,
+    space: str,
+    validator_name: str | None = None,
 ) -> None:
+    validator = VALIDATORS.get(validator_name) if validator_name else None
     for match in compiled.finditer(text):
-        if compact:
-            doc_start, doc_end = compact_span_to_doc_span(rebuilt, match.start(), match.end())
-        else:
+        if space == "text":
             doc_start, doc_end = match.start(), match.end()
+        else:
+            doc_start, doc_end = compact_span_to_doc_span(rebuilt, match.start(), match.end())
         if _overlaps(output, doc_start, doc_end):
             continue
+        if validator is not None:
+            value = match.group(1) if match.re.groups else match.group(0)
+            if not validator(value):
+                continue
         block_ids = span_to_block_ids(rebuilt, doc_start, doc_end)
         if not block_ids:
             continue
@@ -73,5 +95,6 @@ def _append_matches(
                 doc_start=doc_start,
                 doc_end=doc_end,
                 block_ids=block_ids,
+                matched_via=space,
             )
         )

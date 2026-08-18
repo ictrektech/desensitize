@@ -100,6 +100,9 @@ class ImageDesensitizeRequest(BaseModel):
     level: str = "standard"
     rules: Optional[list[str]] = None
     ner: bool = False
+    adaptive: bool = False
+    reversible: bool = False
+    ledger_key: Optional[str] = None
     return_coordinates: bool = False
     max_side: int = Field(default=1600, ge=256, le=4096)
 
@@ -111,3 +114,18 @@ class ImageDesensitizeResponse(BaseModel):
     metadata: dict
     latency_ms: float
     coordinates: Optional[list[dict]] = None
+    ledger: Optional[dict] = None
+
+
+class ImageRestoreRequest(BaseModel):
+    image_base64: str
+    ledger: dict
+    ledger_key: Optional[str] = None
+    mime_type: str = "image/png"
+
+
+class ImageRestoreResponse(BaseModel):
+    image_base64: str
+    mime_type: str
+    report: list[dict]
+    restored_count: int

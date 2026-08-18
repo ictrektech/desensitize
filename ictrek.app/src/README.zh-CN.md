@@ -112,6 +112,7 @@ Web 的“模型管理”页面会分别显示 NER 与 OCR 模型的 Model Hub �
 | `/api/v1/desensitize` | POST | 批量脱敏消息列表 |
 | `/api/v1/desensitize/text` | POST | 单文本脱敏 |
 | `/api/v1/desensitize/image` | POST | 图片 OCR 脱敏 |
+| `/api/v1/desensitize/image/restore` | POST | 还原可逆图片脱敏结果 |
 | `/health` | GET | 健康检查 |
 
 单文本 NER 调用（不传 `ner` 或传 `false` 时保持完全兼容的纯规则模式）：
@@ -131,12 +132,33 @@ POST /api/v1/desensitize/image
   "image_base64": "<base64 或 data:image/...;base64,...>",
   "mime_type": "image/jpeg",
   "ner": false,
+  "adaptive": true,
+  "reversible": false,
+  "ledger_key": "<可选：64 位 hex 密钥，仅 reversible=true 时需要>",
   "return_coordinates": true,
   "max_side": 1600
 }
 ```
 
 返回 `image_base64` 为已打码图片；`replaced` 为命中统计；`coordinates` 为可选遮挡坐标。
+图片规则会同时在原 OCR 重建文本、去空白紧凑文本、以及带校验门控的混淆归一化文本上匹配；
+`adaptive=true` 时会按身份证、发票、物流面单、配置截图等场景选择规则与兜底策略；`reversible=true`
+时会返回加密 `ledger`，调用方可保存 ledger 和密钥用于后续还原。
+
+可逆图片还原调用：
+
+```json
+POST /api/v1/desensitize/image/restore
+{
+  "image_base64": "<已脱敏图片 base64>",
+  "ledger": "<脱敏响应返回的 ledger 对象>",
+  "ledger_key": "<64 位 hex 密钥>",
+  "mime_type": "image/png"
+}
+```
+
+还原接口默认输出 `image/png`，避免 JPEG 重新压缩破坏贴回像素。单个区域解密失败只记录在 `report`
+中，不中断其余区域还原。服务不会保存 ledger 或密钥，调用方必须自行保存并保护密钥。
 
 ## 降级策略
 

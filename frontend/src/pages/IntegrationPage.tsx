@@ -105,7 +105,7 @@ Content-Type: application/json
 
         <div className="integration-section">
           <h3>POST /api/v1/desensitize/image — 图片脱敏</h3>
-          <p>图片接口是新增能力，不改变文本接口。后端会先 OCR，再重建连续文本并执行规则匹配，避免手机号、身份证号、密钥被 OCR 拆成多个文本框后漏检；同时会识别身份证、发票、物流面单等图片中的字段标签，并遮挡同一行或右侧相邻的字段值。</p>
+          <p>图片接口不改变文本接口。后端会先 OCR，再重建连续文本并执行多空间规则匹配：原文本、去空白紧凑文本、以及带校验门控的混淆归一化文本，避免手机号、身份证号、密钥被 OCR 拆成多个文本框或把 0/1 等字符识别成 O/l 后漏检；同时会识别身份证、发票、物流面单等图片中的字段标签，并遮挡同一行或右侧相邻的字段值。</p>
           <div className="code-block">{`POST /api/v1/desensitize/image
 Content-Type: application/json
 
@@ -114,6 +114,9 @@ Content-Type: application/json
   "mime_type": "image/jpeg",
   "level": "standard",
   "ner": false,
+  "adaptive": true,
+  "reversible": false,
+  "ledger_key": "<可选：64 位 hex 密钥，仅 reversible=true 时需要>",
   "return_coordinates": true,
   "max_side": 1600
 }
@@ -131,7 +134,30 @@ Content-Type: application/json
     {"box": {"x1": 10, "y1": 20, "x2": 180, "y2": 48}, "quad": [[10,20],[180,20],[180,48],[10,48]]}
   ]
 }`}</div>
-          <p>tc192/L4T 等弱性能环境建议保持默认：<code>max_side=1600</code>、OCR 并发 <code>1</code>。需要人名/地址语义遮挡时再传 <code>ner=true</code>。</p>
+          <p><code>adaptive=true</code> 会按 OCR 关键词识别身份证、发票、物流面单、配置截图等场景，并选择对应规则与兜底策略；信号不足时回退到全量规则。<code>reversible=true</code> 会返回加密 <code>ledger</code>，用于审计场景下还原被遮挡区域。tc192/L4T 等弱性能环境建议保持默认：<code>max_side=1600</code>、OCR 并发 <code>1</code>。需要人名/地址语义遮挡时再传 <code>ner=true</code>。</p>
+        </div>
+
+        <div className="integration-section">
+          <h3>POST /api/v1/desensitize/image/restore — 可逆图片还原</h3>
+          <p>仅当图片脱敏请求设置 <code>reversible=true</code> 且保存了响应中的 <code>ledger</code> 时可用。服务不会保存 ledger 或密钥，调用方必须自行保存并保护密钥。</p>
+          <div className="code-block">{`POST /api/v1/desensitize/image/restore
+Content-Type: application/json
+
+{
+  "image_base64": "<已脱敏图片 base64>",
+  "ledger": "<脱敏响应返回的 ledger 对象>",
+  "ledger_key": "<64 位 hex 密钥>",
+  "mime_type": "image/png"
+}
+
+# Response
+{
+  "image_base64": "<restored-image-base64>",
+  "mime_type": "image/png",
+  "report": [{"index": 0, "restored": true}],
+  "restored_count": 1
+}`}</div>
+          <p>还原接口默认输出 <code>image/png</code>，避免 JPEG 重新压缩破坏贴回像素。单个区域解密失败只记录在 <code>report</code> 中，不中断其余区域还原。</p>
         </div>
 
         <div className="integration-section">

@@ -85,6 +85,9 @@ POST /api/v1/desensitize/image
   "image_base64": "<base64 or data:image/...;base64,...>",
   "mime_type": "image/jpeg",
   "ner": false,
+  "adaptive": true,
+  "reversible": false,
+  "ledger_key": "<optional 64-char hex key, required only when reversible=true>",
   "return_coordinates": true,
   "max_side": 1600
 }
@@ -98,6 +101,26 @@ unchanged. For Chinese ID cards, invoices, and logistics labels, the image
 pipeline also detects nearby values for field labels such as ID number, phone,
 address, email, taxpayer ID, invoice number, order number, and tracking number,
 so fragmented or partially missed OCR digits can still be masked.
+
+When `adaptive` is true, the service selects rule and fallback policies based on
+lightweight OCR scene signals such as ID documents, invoices, logistics labels,
+configuration screenshots, or generic images. When `reversible` is true, the
+response includes an encrypted `ledger`; callers must store the ledger and key
+themselves if later restoration is required.
+
+```json
+POST /api/v1/desensitize/image/restore
+{
+  "image_base64": "<masked image base64>",
+  "ledger": "<ledger object returned by the image API>",
+  "ledger_key": "<64-char hex key>",
+  "mime_type": "image/png"
+}
+```
+
+The restore API defaults to `image/png` to avoid JPEG recompression changing the
+restored pixels. Failed regions are reported individually and do not abort other
+regions. The service does not persist ledgers or keys.
 
 OCR is conservative by default for weaker devices:
 
@@ -119,4 +142,5 @@ OCR is conservative by default for weaker devices:
 | `/api/v1/desensitize` | POST | Batch desensitize messages |
 | `/api/v1/desensitize/text` | POST | Desensitize single text |
 | `/api/v1/desensitize/image` | POST | OCR-based image desensitization |
+| `/api/v1/desensitize/image/restore` | POST | Restore reversible image redaction |
 | `/health` | GET | Health check |

@@ -105,7 +105,7 @@ Content-Type: application/json
 
         <div className="integration-section">
           <h3>POST /api/v1/desensitize/image — 图片脱敏</h3>
-          <p>图片接口不改变文本接口。后端会先 OCR，再重建连续文本并执行多空间规则匹配：原文本、去空白紧凑文本、以及带校验门控的混淆归一化文本，避免手机号、身份证号、密钥被 OCR 拆成多个文本框或把 0/1 等字符识别成 O/l 后漏检；同时会识别身份证、发票、物流面单等图片中的字段标签，并遮挡同一行或右侧相邻的字段值。</p>
+          <p>图片接口不改变文本接口。该接口只接收 JSON base64 图片，不接收 multipart/form-data 文件上传；误用文件表单会返回 415。后端会先 OCR，再重建连续文本并执行多空间规则匹配：原文本、去空白紧凑文本、以及带校验门控的混淆归一化文本，避免手机号、身份证号、密钥被 OCR 拆成多个文本框或把 0/1 等字符识别成 O/l 后漏检；同时会识别身份证、发票、物流面单等图片中的字段标签，并遮挡同一行或右侧相邻的字段值。</p>
           <div className="code-block">{`POST /api/v1/desensitize/image
 Content-Type: application/json
 

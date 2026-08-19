@@ -173,6 +173,7 @@ Web 的“模型管理”页面提供 NER 与 OCR 两张模型卡片，可查看
 
 ```bash
 POST /api/v1/desensitize/image
+Content-Type: application/json
 ```
 
 请求体：
@@ -188,6 +189,9 @@ POST /api/v1/desensitize/image
   "max_side": 1600
 }
 ```
+
+该接口只接收 JSON base64 图片，不接收 `multipart/form-data` 文件上传；误用文件表单会返回
+`415 Unsupported Media Type`。
 
 返回值中的 `image_base64` 是已打码图片；`replaced` 给出命中规则统计；开启
 `return_coordinates` 时会返回实际遮挡区域坐标（`quad` 为多边形顶点，倾斜文本时

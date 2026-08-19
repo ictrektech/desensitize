@@ -14,6 +14,7 @@ import logging
 import os
 
 from fastapi import FastAPI
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.routers import rules as rules_router
@@ -46,6 +47,24 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.middleware("http")
+async def reject_invalid_image_content_type(request, call_next):
+    """图片脱敏接口只接收 JSON，避免 multipart 二进制请求触发 500。"""
+    if request.method == "POST" and request.url.path == "/api/v1/desensitize/image":
+        content_type = request.headers.get("content-type", "").split(";", 1)[0].strip().lower()
+        if content_type != "application/json":
+            return JSONResponse(
+                status_code=415,
+                content={
+                    "detail": (
+                        "POST /api/v1/desensitize/image expects application/json with "
+                        "image_base64; multipart/form-data is not supported."
+                    )
+                },
+            )
+    return await call_next(request)
 
 
 @app.on_event("startup")

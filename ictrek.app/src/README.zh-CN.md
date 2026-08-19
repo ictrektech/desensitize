@@ -128,6 +128,8 @@ POST /api/v1/desensitize/text
 
 ```json
 POST /api/v1/desensitize/image
+Content-Type: application/json
+
 {
   "image_base64": "<base64 或 data:image/...;base64,...>",
   "mime_type": "image/jpeg",
@@ -139,6 +141,9 @@ POST /api/v1/desensitize/image
   "max_side": 1600
 }
 ```
+
+图片接口只接收 JSON base64 图片，不接收 `multipart/form-data` 文件上传；误用文件表单会返回
+`415 Unsupported Media Type`。
 
 返回 `image_base64` 为已打码图片；`replaced` 为命中统计；`coordinates` 为可选遮挡坐标。
 图片规则会同时在原 OCR 重建文本、去空白紧凑文本、以及带校验门控的混淆归一化文本上匹配；

@@ -351,6 +351,7 @@ verify_package() {
   app_listing="$(tar tzf "$app_tarball")"
   package_listing="$(tar tf "$package_path")"
   printf '%s\n' "$app_listing" | grep -qx 'manifest.yml'
+  printf '%s\n' "$app_listing" | grep -qx 'icon.png'
   printf '%s\n' "$app_listing" | grep -qx 'README.zh-CN.md'
   printf '%s\n' "$package_listing" | grep -qx 'app.tar.gz'
   ! printf '%s\n' "$package_listing" | grep -q '^assets/'
@@ -420,10 +421,11 @@ main() {
   render_template "$SRC_DIR/routers.yml" "$STAGE_DIR/routers.yml"
   render_template "$SRC_DIR/README.zh-CN.md" "$STAGE_DIR/README.zh-CN.md"
   render_template "$SRC_DIR/README.en.md" "$STAGE_DIR/README.en.md"
+  cp "$SRC_DIR/icon.png" "$STAGE_DIR/icon.png"
 
   local app_tarball="${DIST_DIR}/app.tar.gz"
   local tarball="${DIST_DIR}/${APP_NAME}_${APP_VERSION}_pull.tar"
-  tar czf "$app_tarball" -C "$STAGE_DIR" .env manifest.yml docker-compose.yml configs.yml routers.yml README.zh-CN.md README.en.md
+  tar czf "$app_tarball" -C "$STAGE_DIR" .env manifest.yml docker-compose.yml configs.yml routers.yml icon.png README.zh-CN.md README.en.md
   rm -rf "$PACKAGE_ROOT"
   mkdir -p "$PACKAGE_ROOT"
   cp "$app_tarball" "$PACKAGE_ROOT/app.tar.gz"

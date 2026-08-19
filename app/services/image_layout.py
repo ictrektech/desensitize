@@ -7,6 +7,8 @@ line/document text and preserve offset mappings back to source boxes.
 
 from __future__ import annotations
 
+import json
+import os
 from dataclasses import dataclass
 import unicodedata
 
@@ -74,15 +76,34 @@ CONFUSION_MAP = {
     "g": "9",
 }
 
+REVERSE_CONFUSION_MAP = {
+    "0": "O",
+    "1": "i",
+    "2": "Z",
+    "5": "S",
+    "6": "G",
+    "8": "B",
+    "9": "g",
+}
+
+
+@dataclass(frozen=True)
+class DerivedSpace:
+    name: str
+    text: str
+    requires_validator: bool = False
+
 
 @dataclass
 class RebuiltText:
     text: str
     blocks: list[OcrBlock]
     char_maps: list[CharMap]
+    block_ranges: dict[int, tuple[int, int]]
     compact_text: str
     compact_to_doc: list[int]
     confused_text: str = ""
+    derived_spaces: list[DerivedSpace] | None = None
 
 
 def rect_from_quad(quad: list[Point]) -> Rect:
@@ -124,6 +145,7 @@ def rebuild_text(blocks: list[OcrBlock]) -> RebuiltText:
 
     text_parts: list[str] = []
     char_maps: list[CharMap] = []
+    block_ranges: dict[int, tuple[int, int]] = {}
     doc_pos = 0
 
     for line_id, line in enumerate(lines):
@@ -150,6 +172,8 @@ def rebuild_text(blocks: list[OcrBlock]) -> RebuiltText:
                     block_char_end=len(normalized),
                 )
             )
+            if block.block_id is not None:
+                block_ranges[block.block_id] = (start, end)
             doc_pos = end
 
         if line_id != len(lines) - 1:
@@ -166,16 +190,58 @@ def rebuild_text(blocks: list[OcrBlock]) -> RebuiltText:
         compact_chars.append(char)
         compact_to_doc.append(i)
 
-    confused_text = "".join(CONFUSION_MAP.get(char, char) for char in compact_chars)
+    compact_text = "".join(compact_chars)
+    confused_text = "".join(CONFUSION_MAP.get(char, char) for char in compact_text)
+    derived_spaces = _build_derived_spaces(compact_text)
 
     return RebuiltText(
         text=text,
         blocks=clean_blocks,
         char_maps=char_maps,
-        compact_text="".join(compact_chars),
+        block_ranges=block_ranges,
+        compact_text=compact_text,
         compact_to_doc=compact_to_doc,
         confused_text=confused_text,
+        derived_spaces=derived_spaces,
     )
+
+
+def _build_derived_spaces(compact_text: str) -> list[DerivedSpace]:
+    spaces: list[DerivedSpace] = []
+    for name, mapping, requires_validator in _configured_confusion_maps():
+        derived = "".join(mapping.get(char, char) for char in compact_text)
+        if derived != compact_text:
+            spaces.append(DerivedSpace(name, derived, requires_validator))
+    return spaces
+
+
+def _configured_confusion_maps() -> list[tuple[str, dict[str, str], bool]]:
+    maps: list[tuple[str, dict[str, str], bool]] = [("confused", dict(CONFUSION_MAP), True)]
+    if os.getenv("DESENSITIZE_IMAGE_REVERSE_CONFUSION_ENABLED", "true").lower() in {"1", "true", "yes", "on"}:
+        maps.append(("reverse_confused", dict(REVERSE_CONFUSION_MAP), False))
+
+    raw = os.getenv("DESENSITIZE_IMAGE_CONFUSION_MAPS_JSON", "").strip()
+    if not raw:
+        return maps
+    try:
+        data = json.loads(raw)
+    except json.JSONDecodeError:
+        return maps
+    if not isinstance(data, list):
+        return maps
+    for index, item in enumerate(data):
+        if not isinstance(item, dict):
+            continue
+        mapping = item.get("map")
+        if not isinstance(mapping, dict):
+            continue
+        one_to_one = {str(k): str(v) for k, v in mapping.items() if len(str(k)) == 1 and len(str(v)) == 1}
+        if not one_to_one:
+            continue
+        name = str(item.get("name") or f"custom_confused_{index + 1}")
+        requires_validator = bool(item.get("requires_validator", True))
+        maps.append((name, one_to_one, requires_validator))
+    return maps
 
 
 def span_to_block_ids(rebuilt: RebuiltText, start: int, end: int) -> list[int]:

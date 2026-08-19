@@ -3,12 +3,19 @@
 from __future__ import annotations
 
 from collections import Counter
+import os
 import time
 
-from app.services.image_fallback import detect_sensitive_field_value_regions, detect_unrecognized_long_text_regions
-from app.services.image_layout import rebuild_text, span_to_block_ids
+from PIL import Image
+
+from app.services.image_fallback import (
+    detect_recheck_regions,
+    detect_sensitive_field_value_regions,
+    detect_unrecognized_long_text_regions,
+)
+from app.services.image_layout import OcrBlock, Point, Rect, rebuild_text, span_to_block_ids
 from app.services.image_ledger import build_ledger, resolve_ledger_key
-from app.services.image_matcher import ImageMatch, match_rebuilt_text
+from app.services.image_matcher import ImageMatch, match_rebuilt_text_with_audit
 from app.services.image_masker import (
     apply_masks,
     decode_image_base64,
@@ -42,10 +49,14 @@ def desensitize_image_base64(
     detected_blocks = image_ocr_engine.detect(ocr_image)
     inverse_scale = 1.0 / scale if scale else 1.0
     blocks = scale_blocks(detected_blocks, inverse_scale)
+    secondary = _secondary_ocr(original, blocks, enabled=_secondary_ocr_enabled(scale, blocks))
+    if secondary["blocks"]:
+        blocks.extend(secondary["blocks"])
 
     rebuilt = rebuild_text(blocks)
     scene = classify_scene(blocks, rebuilt) if adaptive else None
-    matches = match_rebuilt_text(rebuilt, effective_rule_ids(scene, rule_ids))
+    match_result = match_rebuilt_text_with_audit(rebuilt, effective_rule_ids(scene, rule_ids))
+    matches = match_result.matches
 
     replaced = _matches_to_replaced(matches)
     if ner:
@@ -72,6 +83,29 @@ def desensitize_image_base64(
 
     policy = scene["policy"] if scene else None
     regions = regions_for_matches(blocks, matches)
+
+    gate_regions = []
+    gate_policy = os.getenv("DESENSITIZE_IMAGE_GATE_FAILURE_POLICY", "audit").lower()
+    if gate_policy in {"conservative", "mask"}:
+        gate_regions = regions_for_matches(
+            blocks,
+            [
+                ImageMatch(
+                    rule_id=item.rule_id,
+                    rule_name=f"{item.rule_name}（校验失败嫌疑）",
+                    placeholder="[SUSPECT_VALUE]",
+                    doc_start=item.doc_start,
+                    doc_end=item.doc_end,
+                    block_ids=item.block_ids,
+                    matched_via=f"{item.matched_via}_rejected",
+                )
+                for item in match_result.audit.rejected_candidates
+                if item.block_ids
+            ],
+        )
+    if gate_regions:
+        regions.extend(gate_regions)
+        replaced.append({"rule": "校验失败嫌疑区间", "placeholder": "[SUSPECT_VALUE]", "occurrences": len(gate_regions)})
 
     field_regions = []
     if policy is None or policy["field_fallback"]:
@@ -110,6 +144,9 @@ def desensitize_image_base64(
             "rebuilt_text_length": len(rebuilt.text),
             "normalized_matching": True,
             "matched_via": dict(Counter(m.matched_via for m in matches)),
+            "suppressed_by_space": dict(match_result.audit.suppressed_by_space),
+            "validator_rejected": len(match_result.audit.rejected_candidates),
+            "gate_failure_policy": gate_policy,
             "adaptive": adaptive,
             "scene": (
                 {
@@ -122,6 +159,12 @@ def desensitize_image_base64(
             ),
             "field_fallback_regions": len(field_regions),
             "fallback_masked_lines": len(fallback_regions),
+            "secondary_ocr": {
+                "enabled": secondary["enabled"],
+                "regions": secondary["regions"],
+                "blocks": len(secondary["blocks"]),
+                "reasons": secondary["reasons"],
+            },
             "resized": scale != 1.0,
             "scale": round(scale, 6),
             "ocr": image_ocr_engine.info(),
@@ -139,6 +182,68 @@ def desensitize_image_base64(
             for r in regions
         ]
     return response
+
+
+def _secondary_ocr_enabled(scale: float, blocks: list[OcrBlock]) -> bool:
+    configured = os.getenv("DESENSITIZE_IMAGE_SECONDARY_OCR_ENABLED", "auto").lower()
+    if configured in {"0", "false", "no", "off"}:
+        return False
+    if configured in {"1", "true", "yes", "on"}:
+        return True
+    return scale != 1.0 or any(block.score < 0.55 for block in blocks)
+
+
+def _secondary_ocr(original: Image.Image, blocks: list[OcrBlock], *, enabled: bool) -> dict:
+    if not enabled:
+        return {"enabled": False, "regions": 0, "blocks": [], "reasons": {}}
+    max_regions = int(os.getenv("DESENSITIZE_IMAGE_SECONDARY_OCR_MAX_REGIONS", "4"))
+    target_short = int(os.getenv("DESENSITIZE_IMAGE_SECONDARY_OCR_TARGET_SHORT", "640"))
+    recheck = detect_recheck_regions(original, blocks, max_regions=max_regions)
+    new_blocks: list[OcrBlock] = []
+    reasons: dict[str, int] = {}
+    for region, reason in recheck:
+        reasons[reason] = reasons.get(reason, 0) + 1
+        crop_box = _safe_crop_box(region.box, original)
+        if crop_box is None:
+            continue
+        crop = original.crop(crop_box)
+        scale = _secondary_scale(crop, target_short)
+        ocr_input = crop.resize((max(1, int(crop.width * scale)), max(1, int(crop.height * scale)))) if scale != 1.0 else crop
+        detected = image_ocr_engine.detect(ocr_input)
+        new_blocks.extend(_map_crop_blocks(detected, crop_box, scale))
+    return {"enabled": True, "regions": len(recheck), "blocks": new_blocks, "reasons": reasons}
+
+
+def _safe_crop_box(box: Rect, image: Image.Image) -> tuple[int, int, int, int] | None:
+    x1 = max(0, int(box.x1))
+    y1 = max(0, int(box.y1))
+    x2 = min(image.width, int(box.x2))
+    y2 = min(image.height, int(box.y2))
+    if x2 <= x1 or y2 <= y1:
+        return None
+    return (x1, y1, x2, y2)
+
+
+def _secondary_scale(image: Image.Image, target_short: int) -> float:
+    short = min(image.width, image.height)
+    if short <= 0 or short >= target_short:
+        return 1.0
+    return target_short / short
+
+
+def _map_crop_blocks(blocks: list[OcrBlock], crop_box: tuple[int, int, int, int], scale: float) -> list[OcrBlock]:
+    x_offset, y_offset = crop_box[0], crop_box[1]
+    mapped: list[OcrBlock] = []
+    for block in blocks:
+        quad = [Point(p.x / scale + x_offset, p.y / scale + y_offset) for p in block.quad]
+        bbox = Rect(
+            block.bbox.x1 / scale + x_offset,
+            block.bbox.y1 / scale + y_offset,
+            block.bbox.x2 / scale + x_offset,
+            block.bbox.y2 / scale + y_offset,
+        )
+        mapped.append(OcrBlock(block.text, quad, bbox, block.score, block.line_id, block.block_id))
+    return mapped
 
 
 def _matches_to_replaced(matches) -> list[dict]:

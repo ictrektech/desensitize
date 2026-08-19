@@ -92,6 +92,53 @@ def detect_unrecognized_long_text_regions(
     return regions
 
 
+def detect_recheck_regions(
+    image: Image.Image,
+    blocks: list[OcrBlock],
+    *,
+    max_regions: int = 4,
+    low_confidence: float = 0.55,
+    min_width_ratio: float = 0.12,
+    min_width_px: int = 80,
+    padding: float = 12.0,
+) -> list[tuple[MaskRegion, str]]:
+    """Find small suspicious areas worth local high-resolution OCR.
+
+    This is the third fallback described in the patent draft: narrow text bands
+    rejected by the full-row mask and low-confidence OCR blocks are cropped from
+    the original image, enlarged, and recognized again by the main engine.
+    """
+
+    candidates: list[tuple[MaskRegion, str, float]] = []
+    for region in _narrow_text_band_regions(
+        image,
+        blocks,
+        min_width_ratio=min_width_ratio,
+        min_width_px=min_width_px,
+        padding=padding,
+    ):
+        candidates.append((region, "narrow_text_band", region.box.width * region.box.height))
+
+    for block in blocks:
+        if block.score >= low_confidence:
+            continue
+        region = _region_for_blocks([block], padding=padding, image_width=image.width)
+        candidates.append((region, "low_confidence_block", region.box.width * region.box.height))
+
+    candidates.sort(key=lambda item: item[2], reverse=True)
+    selected: list[tuple[MaskRegion, str]] = []
+    seen: set[tuple[int, int, int, int, str]] = set()
+    for region, reason, _ in candidates:
+        key = (int(region.box.x1), int(region.box.y1), int(region.box.x2), int(region.box.y2), reason)
+        if key in seen:
+            continue
+        seen.add(key)
+        selected.append((region, reason))
+        if len(selected) >= max_regions:
+            break
+    return selected
+
+
 def detect_sensitive_field_value_regions(
     blocks: list[OcrBlock],
     *,
@@ -174,6 +221,63 @@ def _merge_rows(rows: list[int], *, max_gap: int) -> list[tuple[int, int]]:
         start = prev = row
     bands.append((start, prev))
     return bands
+
+
+def _narrow_text_band_regions(
+    image: Image.Image,
+    blocks: list[OcrBlock],
+    *,
+    min_width_ratio: float,
+    min_width_px: int,
+    padding: float,
+) -> list[MaskRegion]:
+    gray = ImageOps.grayscale(image)
+    width, height = gray.size
+    pixels = gray.load()
+    row_threshold = max(5, int(width * 0.002))
+    active_rows: list[int] = []
+    for y in range(height):
+        dark = 0
+        for x in range(width):
+            if pixels[x, y] < 150:
+                dark += 1
+                if dark >= row_threshold:
+                    active_rows.append(y)
+                    break
+
+    regions: list[MaskRegion] = []
+    max_width = max(min_width_px, width * 0.28)
+    min_width = max(min_width_px, width * min_width_ratio)
+    for y1, y2 in _merge_rows(active_rows, max_gap=3):
+        if y2 - y1 < 6 or y2 - y1 > max(90, height * 0.2):
+            continue
+        if _overlaps_ocr_block(y1, y2, blocks):
+            continue
+        dark_xs: list[int] = []
+        for y in range(y1, y2 + 1):
+            for x in range(width):
+                if pixels[x, y] < 150:
+                    dark_xs.append(x)
+        if not dark_xs:
+            continue
+        x1, x2 = min(dark_xs), max(dark_xs)
+        span = x2 - x1
+        if span < min_width or span >= max_width:
+            continue
+        box = Rect(
+            max(0.0, x1 - padding),
+            max(0.0, y1 - padding),
+            min(float(width), x2 + padding),
+            min(float(height), y2 + padding),
+        )
+        quad = [
+            Point(box.x1, box.y1),
+            Point(box.x2, box.y1),
+            Point(box.x2, box.y2),
+            Point(box.x1, box.y2),
+        ]
+        regions.append(MaskRegion(box, quad))
+    return regions
 
 
 def _overlaps_ocr_block(y1: int, y2: int, blocks: list[OcrBlock]) -> bool:

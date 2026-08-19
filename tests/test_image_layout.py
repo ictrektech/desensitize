@@ -37,6 +37,7 @@ class ImageLayoutMatchingTest(unittest.TestCase):
         self.assertEqual(len(matches), 1)
         self.assertEqual(matches[0].placeholder, "[PHONE_NUMBER]")
         self.assertEqual(matches[0].block_ids, [1, 2])
+        self.assertEqual(rebuilt.block_ranges[1], (7, 13))
 
     def test_split_openai_key_matches_compact_text(self) -> None:
         rebuilt = rebuild_text(
@@ -52,6 +53,14 @@ class ImageLayoutMatchingTest(unittest.TestCase):
         self.assertEqual(len(matches), 1)
         self.assertEqual(matches[0].placeholder, "[API_KEY]")
         self.assertEqual(matches[0].block_ids, [1, 2])
+
+    def test_reverse_confusion_space_for_api_key_literals(self) -> None:
+        rebuilt = rebuild_text([block("sk-l1ve-abc123def456ghi789jkl012mno345pqr", 10, 10, 420, 30)])
+
+        matches = match_rebuilt_text(rebuilt, ["api_key_openai"])
+
+        self.assertEqual(len(matches), 1)
+        self.assertEqual(matches[0].matched_via, "reverse_confused")
 
 
 if __name__ == "__main__":

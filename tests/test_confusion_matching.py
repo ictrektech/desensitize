@@ -1,7 +1,7 @@
 import unittest
 
 from app.services.image_layout import OcrBlock, Point, Rect, rebuild_text
-from app.services.image_matcher import match_rebuilt_text
+from app.services.image_matcher import match_rebuilt_text, match_rebuilt_text_with_audit
 from app.services.rule_store import rule_store
 
 
@@ -53,8 +53,10 @@ class ConfusionMatchingTest(unittest.TestCase):
     def test_confused_id_card_bad_checksum_dropped(self):
         rebuilt = rebuild_text([block("llO10519491231002l", 10, 10, 320, 50)])
         self.assertEqual(rebuilt.confused_text, "110105194912310021")
-        matches = match_rebuilt_text(rebuilt, ["id_card_cn"])
-        self.assertEqual(matches, [])
+        result = match_rebuilt_text_with_audit(rebuilt, ["id_card_cn"])
+        self.assertEqual(result.matches, [])
+        self.assertEqual(len(result.audit.rejected_candidates), 1)
+        self.assertEqual(result.audit.rejected_candidates[0].reason, "validator_failed")
 
     def test_text_space_match_untouched_by_validator(self):
         # Digit-perfect values keep matching in the text space; the checksum
@@ -63,6 +65,12 @@ class ConfusionMatchingTest(unittest.TestCase):
         matches = match_rebuilt_text(rebuilt, ["id_card_cn"])
         self.assertEqual(len(matches), 1)
         self.assertEqual(matches[0].matched_via, "text")
+
+    def test_suppressed_space_is_counted(self):
+        rebuilt = rebuild_text([block("4111111111111111", 10, 10, 260, 50)])
+        result = match_rebuilt_text_with_audit(rebuilt, ["bank_card", "cn_taxpayer_id"])
+        self.assertEqual(len(result.matches), 1)
+        self.assertGreaterEqual(result.audit.suppressed_by_space.get("text", 0), 1)
 
 
 if __name__ == "__main__":

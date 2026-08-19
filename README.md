@@ -203,11 +203,17 @@ NER 模型补充人名、地址遮挡。对于 RapidOCR 未返回文本框但图
 ### 多空间匹配与校验位门控
 
 OCR 常把数字认成形近字母（`0→O`、`1→l/I`、`5→S`、`8→B` 等），导致手机号、身份证号
-在原文和紧凑文本两个匹配空间都漏配。服务在紧凑文本之上再构造第三个匹配空间——
-混淆字符归一化文本（形近字母映射回数字，保留逐字符偏移回映射），仅对带校验器的规则
-（身份证 GB11643 校验位、银行卡 Luhn、手机号号段）启用，命中后必须通过校验位验证
-才计入，控制归一化引入的误报；多空间命中按“原文 > 紧凑 > 归一化”的置信顺序去重。
-响应 `metadata.matched_via` 给出各空间的命中计数。
+在原文和紧凑文本两个匹配空间都漏配。服务在紧凑文本之上构造可配置的等长派生空间：
+默认正向混淆空间把形近字母映射回数字，仅对带校验器的规则（身份证 GB11643 校验位、
+银行卡 Luhn、手机号号段、IBAN mod97、VIN ISO3779）启用；默认逆向混淆空间把数字
+映射回字母，用于修复 `sk-l1ve` 这类密钥前缀 OCR 误读。自定义等长映射可通过
+`DESENSITIZE_IMAGE_CONFUSION_MAPS_JSON` 配置。多空间命中按“原文 > 紧凑 > 派生空间”
+的置信顺序去重，响应 `metadata.matched_via`、`metadata.suppressed_by_space` 与
+`metadata.validator_rejected` 给出接受、抑制和校验失败审计。
+
+校验失败候选会进入漏斗式审计：默认只计入 `validator_rejected`，不改变原输出；如部署要求
+宁可过遮，可设置 `DESENSITIZE_IMAGE_GATE_FAILURE_POLICY=conservative`，将校验失败但可
+回映射到 OCR 框的嫌疑区间按 `[SUSPECT_VALUE]` 遮挡。
 
 ### 四边形精确遮挡
 
@@ -223,6 +229,19 @@ OCR 常把数字认成形近字母（`0→O`、`1→l/I`、`5→S`、`8→B` 等
 api_key/pii 类规则并关闭字段标签兜底，降低长字母数字串的类别泛化误遮；信号不足或
 并列时回退到全量规则的 `generic` 策略，保证不漏遮。响应 `metadata.scene` 返回判定
 结果与所用策略。
+
+### 分辨率自适应二次 OCR 兜底
+
+当图片长边缩放或存在低置信 OCR 块时，服务可对少量疑似漏检区域做局部复核：检测被整行
+兜底宽度规则剔除的窄文本带、以及低置信文本框邻域，从原图裁剪并放大后重新 OCR，坐标
+逆变换后并回主流程，再统一执行行重建、多空间匹配和遮挡。默认 `auto` 模式仅在缩放场景
+触发，最多复核 4 个区域，避免弱设备上开销失控。
+
+| 参数 | 默认值 | 说明 |
+| --- | --- | --- |
+| `DESENSITIZE_IMAGE_SECONDARY_OCR_ENABLED` | `auto` | `auto`/`true`/`false`，是否启用局部二次 OCR |
+| `DESENSITIZE_IMAGE_SECONDARY_OCR_MAX_REGIONS` | `4` | 单张图片最多复核区域数 |
+| `DESENSITIZE_IMAGE_SECONDARY_OCR_TARGET_SHORT` | `640` | 复核裁剪图短边目标像素 |
 
 ### 可逆脱敏与还原
 

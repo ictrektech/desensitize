@@ -1,6 +1,6 @@
 import unittest
 
-from app.services.validators import VALIDATORS, china_id_checksum, cn_mobile, luhn_valid
+from app.services.validators import VALIDATORS, china_id_checksum, cn_mobile, iban_mod97, luhn_valid, vin_iso3779
 
 
 class ChinaIdTest(unittest.TestCase):
@@ -47,9 +47,19 @@ class MobileTest(unittest.TestCase):
         self.assertFalse(cn_mobile(""))
 
 
+class IbanVinTest(unittest.TestCase):
+    def test_iban(self):
+        self.assertTrue(iban_mod97("GB82 WEST 1234 5698 7654 32"))
+        self.assertFalse(iban_mod97("GB82 WEST 1234 5698 7654 33"))
+
+    def test_vin(self):
+        self.assertTrue(vin_iso3779("1M8GDM9AXKP042788"))
+        self.assertFalse(vin_iso3779("1M8GDM9A1KP042788"))
+
+
 class RegistryTest(unittest.TestCase):
     def test_registry_contains_builtin_validators(self):
-        self.assertEqual(set(VALIDATORS), {"china_id", "luhn", "cn_mobile"})
+        self.assertEqual(set(VALIDATORS), {"china_id", "luhn", "cn_mobile", "iban", "vin"})
 
 
 if __name__ == "__main__":

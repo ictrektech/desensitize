@@ -15,8 +15,8 @@ configs:
       zh-CN: Model Hub 共享模型目录
       en: Model Hub Shared Models Path
     description:
-      zh-CN: Model Hub 的宿主机共享根目录。服务会以只读方式挂载整个目录，并从其中的 ModelScope 导出路径加载 NER 与 OCR 模型。
-      en: Host shared-root directory managed by Model Hub. The service mounts it read-only and loads NER and OCR models from ModelScope export paths.
+      zh-CN: Model Hub 的共享根目录。安装时应选择与 Model Hub 相同的 NAS 公共目录；服务会以只读方式挂载整个目录，并从其中的 ModelScope 导出路径加载 NER 与 OCR 模型。
+      en: Shared root directory managed by Model Hub. Select the same NAS public directory as Model Hub at install time. The service mounts it read-only and loads NER and OCR models from ModelScope export paths.
     default: /data/vos_workspace/model_hub
 
   - name: DESENSITIZE_NER_ENABLED

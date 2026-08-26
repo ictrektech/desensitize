@@ -78,7 +78,7 @@ jobs:
 
       - name: Publish package to VOS App Store
         env:
-          APP_STORE: ${{ secrets.APP_STORE || vars.APP_STORE || 'https://123.207.15.89:46155/app/com.ictrek.appstore' }}
+          APP_STORE: ${{ secrets.APP_STORE }}
         run: |
           set -euo pipefail
           if [[ -z "${APP_STORE:-}" ]]; then
@@ -89,11 +89,17 @@ jobs:
           VERSION="${GITHUB_REF_NAME#vos-desensitize-v}"
           PACKAGE="ictrek.app/dist/desensitize_${VERSION}_pull.tar"
           base="${APP_STORE%/}"
-          base="${base%/store}"
-          base="${base%/api/apps/publish}"
-          base="${base%/api/apps/validate}"
 
-          if ! curl -kfsS -F "package=@${PACKAGE}" -F "force=true" \
-              "${base}/api/apps/publish"; then
-            echo "VOS App Store publish failed; GitHub Release remains available." >&2
-          fi
+          publish_response="$(curl -kfsS -F "package=@${PACKAGE}" -F "force=true" "${base}/api/appstore/apps")"
+          RESPONSE="$publish_response" python3 - <<'PY'
+          import json
+          import os
+          import sys
+
+          payload = json.loads(os.environ["RESPONSE"])
+          if payload.get("code") != 0:
+              print(payload, file=sys.stderr)
+              raise SystemExit("App Store publish failed")
+          data = payload.get("data") or {}
+          print(f"Published {data.get('app_id')}@{data.get('version')} to VOS App Store")
+          PY

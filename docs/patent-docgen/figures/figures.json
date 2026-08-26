@@ -1,0 +1,30 @@
+{
+ "fig1_architecture.png": {
+  "w": 1977,
+  "h": 2350
+ },
+ "fig2_rebuild_charmap.png": {
+  "w": 2055,
+  "h": 1580
+ },
+ "fig3_spaces_mapping.png": {
+  "w": 2055,
+  "h": 1580
+ },
+ "fig4_match_gate_dedup.png": {
+  "w": 1745,
+  "h": 2427
+ },
+ "fig5_hull_masking.png": {
+  "w": 2604,
+  "h": 1118
+ },
+ "fig6_adaptive_cascade.png": {
+  "w": 2006,
+  "h": 1426
+ },
+ "fig7_reversible_ledger.png": {
+  "w": 2055,
+  "h": 1195
+ }
+}

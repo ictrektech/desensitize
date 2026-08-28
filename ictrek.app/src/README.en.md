@@ -31,6 +31,8 @@ Iframe URL: `/app/com.ictrek.desensitize/`
 Both values are API base URLs. Append `/api/v1/desensitize/text` for single-text
 desensitization. Traefik removes `/api/com.ictrek.desensitize` before forwarding.
 
+Private application data is stored in `${VOS_APP_STORAGE_PATH}/data`, assigned by VOS. The install form only asks for the shared Model Hub directory.
+
 ## Rule Management
 
 Built-in rules cover common sensitive data such as phone numbers, ID cards,

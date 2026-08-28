@@ -23,12 +23,13 @@
 
 | 参数 | 默认值 | 说明 |
 | --- | --- | --- |
-| `DESENSITIZE_DATA_PATH` | `/data/vos_workspace/desensitize` | 持久化数据目录（存储自定义规则） |
 | `MODEL_HUB_SHARED_MODELS_PATH` | `/data/vos_workspace/model_hub` | Model Hub 共享模型根目录；后端会将总目录只读挂载为 `/modelhub` |
 | `DESENSITIZE_NER_ENABLED` | `true` | 是否允许请求通过 `ner=true` 启用语义脱敏 |
 | `DESENSITIZE_IMAGE_OCR_ENABLED` | `true` | 是否启用图片 OCR 脱敏接口 |
 | `DESENSITIZE_IMAGE_OCR_MAX_CONCURRENCY` | `1` | 同时执行的图片 OCR 数量；tc192/L4T 建议保持默认 |
 | `DESENSITIZE_IMAGE_OCR_QUEUE_TIMEOUT_SECONDS` | `20` | 图片 OCR 并发满时的最长排队等待时间 |
+
+自定义规则等应用私有数据写入 VOS 自动分配的 `${VOS_APP_STORAGE_PATH}/data`，安装表单只要求选择 Model Hub 共享模型目录。
 
 ## 访问入口
 

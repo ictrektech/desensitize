@@ -54,7 +54,7 @@ x-desensitize-backend-base: &desensitize-backend-base
         - desensitize-backend
   environment: *desensitize-backend-env
   volumes:
-    - ${DESENSITIZE_DATA_PATH:-/data/vos_workspace/desensitize}:/data
+    - ${VOS_APP_STORAGE_PATH}/data:/data
     - ${MODEL_HUB_SHARED_MODELS_PATH:-/data/vos_workspace/model_hub}:/modelhub:ro
   labels:
     - "traefik.enable=true"

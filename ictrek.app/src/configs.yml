@@ -1,14 +1,4 @@
 configs:
-  - name: DESENSITIZE_DATA_PATH
-    type: path
-    title:
-      zh-CN: 数据目录
-      en: Data Path
-    description:
-      zh-CN: 脱敏服务持久化数据目录（存储自定义规则等）。
-      en: Persistent data directory for desensitize service (custom rules, etc.).
-    default: /data/vos_workspace/desensitize
-
   - name: MODEL_HUB_SHARED_MODELS_PATH
     type: path
     title:

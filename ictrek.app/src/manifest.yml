@@ -25,6 +25,9 @@ profiles:
     description:
       zh-CN: AMD64 平台，声明 nvidia runtime，未来可加载 PyTorch NER 模型。
       en: AMD64 platform with nvidia runtime, can load PyTorch NER models in the future.
+    caps:
+      arch: amd64
+      software: [cuda]
     conflicts: [amd-without-cuda, arm, arm-without-cuda, l4t, thor-spark]
   - name: amd-without-cuda
     title:
@@ -33,6 +36,8 @@ profiles:
     description:
       zh-CN: AMD64 平台，不声明 nvidia runtime，适用于无显卡或未配置 NVIDIA runtime 的主机。
       en: AMD64 platform without nvidia runtime, for hosts without GPUs or NVIDIA runtime.
+    caps:
+      arch: amd64
     conflicts: [amd, arm, arm-without-cuda, l4t, thor-spark]
   - name: arm
     title:
@@ -41,6 +46,10 @@ profiles:
     description:
       zh-CN: ARM64 平台，声明 nvidia runtime，未来可加载 PyTorch NER 模型。
       en: ARM64 platform with nvidia runtime, can load PyTorch NER models in the future.
+    caps:
+      device-type: generic
+      arch: arm64
+      software: [cuda]
     conflicts: [amd, amd-without-cuda, arm-without-cuda, l4t, thor-spark]
   - name: arm-without-cuda
     title:
@@ -49,6 +58,8 @@ profiles:
     description:
       zh-CN: ARM64 平台，不声明 nvidia runtime，适用于无显卡 ARM 主机。
       en: ARM64 platform without nvidia runtime, for ARM hosts without GPUs.
+    caps:
+      arch: arm64
     conflicts: [amd, amd-without-cuda, arm, l4t, thor-spark]
   - name: l4t
     title:
@@ -57,6 +68,11 @@ profiles:
     description:
       zh-CN: Jetson / L4T 平台（如 tc192），未来可加载 PyTorch NER 模型。
       en: Jetson / L4T platform (e.g. tc192), can load PyTorch NER models in the future.
+    caps:
+      device-type:
+        - any-of: [l4t, jetson]
+      arch: arm64
+      software: [cuda]
     conflicts: [amd, amd-without-cuda, arm, arm-without-cuda, thor-spark]
   - name: thor-spark
     title:
@@ -65,6 +81,11 @@ profiles:
     description:
       zh-CN: Thor Spark 平台（如 tc81），未来可加载 PyTorch NER 模型。
       en: Thor Spark platform (e.g. tc81), can load PyTorch NER models in the future.
+    caps:
+      device-type:
+        - any-of: [thor-spark, thor]
+      arch: arm64
+      software: [cuda]
     conflicts: [amd, amd-without-cuda, arm, arm-without-cuda, l4t]
 
 require-profiles: true

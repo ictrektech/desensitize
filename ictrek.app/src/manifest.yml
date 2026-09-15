@@ -67,6 +67,8 @@ profiles:
       en: Thor Spark platform (e.g. tc81), can load PyTorch NER models in the future.
     conflicts: [amd, amd-without-cuda, arm, arm-without-cuda, l4t]
 
+require-profiles: true
+
 storage:
   directories:
     - path: data

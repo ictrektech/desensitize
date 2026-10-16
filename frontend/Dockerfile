@@ -8,7 +8,7 @@ RUN npm run build
 
 # ── 运行阶段 ──
 FROM nginx:alpine
-RUN apk add --no-cache gettext
+RUN command -v envsubst
 COPY frontend/nginx.conf /etc/nginx/conf.d/default.conf
 COPY frontend/config.js.template /etc/nginx/config.js.template
 COPY --from=build /app/dist /usr/share/nginx/html

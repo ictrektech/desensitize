@@ -179,16 +179,20 @@ class RapidOcrEngine:
                 return self._ocr
             try:
                 from rapidocr_onnxruntime import RapidOCR
+                import cv2
 
                 det_model, rec_model, cls_model = self._model_files()
                 missing = self._missing_model_files()
                 if missing:
                     raise OcrUnavailable("Model Hub OCR model is missing: " + ", ".join(missing))
 
+                cv2.setNumThreads(1)
                 self._ocr = RapidOCR(
                     det_model_path=str(det_model),
                     rec_model_path=str(rec_model),
                     cls_model_path=str(cls_model),
+                    intra_op_num_threads=1,
+                    inter_op_num_threads=1,
                     **_rapidocr_provider_kwargs(self.provider),
                 )
                 self._active_providers = _rapidocr_active_providers(self._ocr)

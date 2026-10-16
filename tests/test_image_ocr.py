@@ -1,7 +1,10 @@
 import unittest
 import base64
 import io
-from unittest.mock import patch
+from unittest.mock import Mock, patch
+from types import SimpleNamespace
+from pathlib import Path
+import sys
 
 from PIL import Image
 from app.services.image_masker import decode_image_base64
@@ -11,6 +14,7 @@ from app.services.image_ocr import (
     _rapidocr_active_providers,
     _rapidocr_provider_kwargs,
     _rapidocr_uses_cuda,
+    RapidOcrEngine,
 )
 
 
@@ -57,6 +61,26 @@ class FakeRapidOcr:
 
 
 class ImageOcrProviderTest(unittest.TestCase):
+    def test_native_ocr_sessions_and_opencv_use_explicit_single_threads(self):
+        engine = RapidOcrEngine()
+        engine.provider = 'cpu'
+        factory = Mock(return_value=FakeRapidOcr(['CPUExecutionProvider']))
+        cv = SimpleNamespace(setNumThreads=Mock())
+        with patch.dict(sys.modules, {'rapidocr_onnxruntime': SimpleNamespace(RapidOCR=factory), 'cv2': cv}), patch.object(engine, '_model_files', return_value=(Path('det'), Path('rec'), Path('cls'))), patch.object(engine, '_missing_model_files', return_value=[]):
+            engine._initialize_ocr()
+        cv.setNumThreads.assert_called_once_with(1)
+        self.assertEqual(factory.call_args.kwargs['intra_op_num_threads'], 1)
+        self.assertEqual(factory.call_args.kwargs['inter_op_num_threads'], 1)
+
+    def test_scheduler_records_actual_math_thread_environment(self):
+        with patch.dict('os.environ', {'OMP_NUM_THREADS': '1', 'MKL_NUM_THREADS': '1', 'OPENBLAS_NUM_THREADS': '1'}):
+            settings = scheduler.execution_settings()
+        self.assertEqual(settings['ocr_thread_policy'], 'fixed-1')
+        self.assertEqual(settings['ocr_intra_op_threads'], 1)
+        self.assertEqual(settings['ocr_inter_op_threads'], 1)
+        self.assertEqual(settings['opencv_threads'], 1)
+        self.assertTrue(all(value == '1' for value in settings['math_thread_environment'].values()))
+
     def test_cuda_provider_uses_rapidocr_cuda_flags(self) -> None:
         self.assertEqual(
             _rapidocr_provider_kwargs("cuda"),

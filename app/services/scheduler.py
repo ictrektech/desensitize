@@ -39,7 +39,7 @@ def execution_settings():
         ocr_version = metadata.version("rapidocr-onnxruntime")
     except metadata.PackageNotFoundError:
         ocr_version = "unavailable"
-    return {"ner_provider_requested": ner_engine.provider, "ocr_provider_requested": image_ocr_engine.provider, "onnx_available_providers": providers, "onnxruntime_version": ort_version, "rapidocr_version": ocr_version, "logical_cpu_count": os.cpu_count(), "ner_intra_op_threads": int(os.getenv("DESENSITIZE_NER_INTRA_OP_THREADS", "4")), "ner_inter_op_threads": 1, "ocr_thread_policy": "rapidocr-default", "max_concurrent_inference": 1, "ner_max_tokens": ner_engine.max_tokens}
+    return {"ner_provider_requested": ner_engine.provider, "ocr_provider_requested": image_ocr_engine.provider, "onnx_available_providers": providers, "onnxruntime_version": ort_version, "rapidocr_version": ocr_version, "logical_cpu_count": os.cpu_count(), "ner_intra_op_threads": int(os.getenv("DESENSITIZE_NER_INTRA_OP_THREADS", "4")), "ner_inter_op_threads": 1, "ocr_thread_policy": "fixed-1", "ocr_intra_op_threads": 1, "ocr_inter_op_threads": 1, "opencv_threads": 1, "math_thread_environment": {name: os.getenv(name, "unset") for name in ["OMP_NUM_THREADS", "MKL_NUM_THREADS", "OPENBLAS_NUM_THREADS"]}, "max_concurrent_inference": 1, "ner_max_tokens": ner_engine.max_tokens}
 
 
 def validate_limits(model, inputs, config=None):

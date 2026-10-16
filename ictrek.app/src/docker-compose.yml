@@ -29,6 +29,9 @@ x-desensitize-frontend-base: &desensitize-frontend-base
     - "traefik.http.services.desensitize-web.loadbalancer.server.port=80"
 
 x-desensitize-backend-env: &desensitize-backend-env
+  OMP_NUM_THREADS: "1"
+  MKL_NUM_THREADS: "1"
+  OPENBLAS_NUM_THREADS: "1"
   DESENSITIZE_DATA_DIR: /data
   DESENSITIZE_SCHEDULER_REQUIRED: "true"
   VOS_API_GW_PORT_INTERNAL: ${VOS_API_GW_PORT_INTERNAL}

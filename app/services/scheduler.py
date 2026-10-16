@@ -3,6 +3,8 @@ from __future__ import annotations
 import asyncio
 import contextvars
 import json
+import math
+from importlib import metadata
 import os
 import secrets
 import threading
@@ -24,6 +26,35 @@ execution_lock = threading.Lock()
 active = 0
 
 
+def execution_settings():
+    from .ner_engine import ner_engine
+    from .image_ocr import image_ocr_engine
+    try:
+        import onnxruntime
+        providers = sorted(onnxruntime.get_available_providers())
+        ort_version = onnxruntime.__version__
+    except ImportError:
+        providers, ort_version = [], "unavailable"
+    try:
+        ocr_version = metadata.version("rapidocr-onnxruntime")
+    except metadata.PackageNotFoundError:
+        ocr_version = "unavailable"
+    return {"ner_provider_requested": ner_engine.provider, "ocr_provider_requested": image_ocr_engine.provider, "onnx_available_providers": providers, "onnxruntime_version": ort_version, "rapidocr_version": ocr_version, "logical_cpu_count": os.cpu_count(), "ner_intra_op_threads": int(os.getenv("DESENSITIZE_NER_INTRA_OP_THREADS", "4")), "ner_inter_op_threads": 1, "ocr_thread_policy": "rapidocr-default", "max_concurrent_inference": 1, "ner_max_tokens": ner_engine.max_tokens}
+
+
+def validate_limits(model, inputs, config=None):
+    if not required():
+        return
+    config = config or read_config()
+    limits = config.get("model_limits", {}).get(model, {})
+    for field, value in inputs.items():
+        maximum = limits.get(field)
+        if type(maximum) not in {int, float} or not math.isfinite(maximum) or maximum < 0:
+            raise HTTPException(503, "Calibrated input limit required: " + field)
+        if type(value) not in {int, float} or not math.isfinite(value) or value > maximum or value < 0:
+            raise HTTPException(422, "Input exceeds calibrated limit: " + field)
+
+
 def required():
     return os.getenv(PREFIX + "_SCHEDULER_REQUIRED") == "true"
 
@@ -43,6 +74,8 @@ def read_config():
             raise ValueError("invalid service binding")
         if len(value.get("token", "")) < 32:
             raise ValueError("missing service identity")
+        if value.get("execution_settings") != execution_settings():
+            raise ValueError("runtime settings no longer match approval")
         return value
     except (OSError, ValueError, TypeError, AttributeError):
         raise HTTPException(503, "V-Scheduler binding required") from None
@@ -119,6 +152,8 @@ async def bind(request: Request):
                 raise ValueError()
         if not isinstance(config.get("models"), dict) or not 1 <= len(config["models"]) <= 512:
             raise ValueError()
+        if config.get("execution_settings") != execution_settings() or not isinstance(config.get("model_limits"), dict):
+            raise ValueError()
         for field in ("models", "gateway_executors"):
             mapping = config.get(field, {})
             if not isinstance(mapping, dict) or len(mapping) > 512 or any(not isinstance(model, str) or not isinstance(executor, str) or not model or not executor for model, executor in mapping.items()):
@@ -150,23 +185,24 @@ async def bind(request: Request):
 
 
 @contextmanager
-def compute(model, unload):
+def compute(model, unload, inputs=None):
     if not required():
         yield
         return
     with execution_lock:
-        with _compute(model, unload):
+        with _compute(model, unload, inputs):
             yield
 
 
 @contextmanager
-def _compute(model, unload):
+def _compute(model, unload, inputs=None):
     global active
     if not required():
         yield
         return
     with lock:
         config = read_config()
+        validate_limits(model, inputs or {}, config)
         active += 1
     permit = ""
     owned = False

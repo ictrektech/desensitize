@@ -20,12 +20,18 @@ class MaskRegion:
     quad: list[Point]
 
 
-def decode_image_base64(image_base64: str) -> Image.Image:
+def decode_image_base64(image_base64: str, *, scheduled_model: str = "") -> Image.Image:
     if "," in image_base64 and image_base64.split(",", 1)[0].startswith("data:"):
         image_base64 = image_base64.split(",", 1)[1]
     try:
+        if scheduled_model:
+            from app.services.scheduler import validate_limits
+            validate_limits(scheduled_model, {"input_bytes": len(image_base64) * 3 // 4})
         raw = base64.b64decode(image_base64, validate=False)
-        return Image.open(io.BytesIO(raw)).convert("RGB")
+        with Image.open(io.BytesIO(raw)) as image:
+            if scheduled_model:
+                validate_limits(scheduled_model, {"input_bytes": len(raw), "input_width": image.width, "input_height": image.height, "input_pixels": image.width * image.height, "input_pages": getattr(image, "n_frames", 1)})
+            return image.convert("RGB")
     except (binascii.Error, OSError) as exc:
         raise ValueError("invalid base64 image") from exc
 

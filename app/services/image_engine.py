@@ -44,7 +44,7 @@ def desensitize_image_base64(
 ) -> dict:
     del level  # reserved for future level-specific rule selection
     start = time.perf_counter()
-    original = decode_image_base64(image_base64)
+    original = decode_image_base64(image_base64, scheduled_model="ocr")
     ocr_image, scale = resize_for_ocr(original, max_side)
     detected_blocks = image_ocr_engine.detect(ocr_image)
     inverse_scale = 1.0 / scale if scale else 1.0

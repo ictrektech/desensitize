@@ -23,7 +23,7 @@ from app.routers import models as models_router
 from app.services.rule_store import rule_store
 from app.services.ner_engine import ner_engine
 from app.services.image_ocr import image_ocr_engine
-from app.services.scheduler import SchedulerHeadersMiddleware, binding_status, router as scheduler_router
+from app.services.scheduler import SchedulerHeadersMiddleware, binding_status, execution_settings, router as scheduler_router
 
 logging.basicConfig(
     level=logging.INFO,
@@ -116,6 +116,7 @@ async def discovery():
         "num_threads": int(os.getenv("DESENSITIZE_NER_INTRA_OP_THREADS", "4")),
         "max_concurrent_inference": 1, "max_tokens": ner_engine.max_tokens,
         "sync_models": [{"id": model, "task_type": "model.infer"} for model in ready],
+        "execution_settings": execution_settings(),
         "binding": binding_status(),
     }}
 

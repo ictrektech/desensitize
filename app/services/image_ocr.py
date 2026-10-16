@@ -55,7 +55,7 @@ class RapidOcrEngine:
     def detect(self, image: Image.Image) -> list[OcrBlock]:
         if not required():
             return self._detect(image)
-        with compute("ocr", self._unload):
+        with compute("ocr", self._unload, {"input_width": image.width, "input_height": image.height, "input_pixels": image.width * image.height}):
             if self._ocr is None:
                 self._initialize_ocr()
             return self._detect(image)

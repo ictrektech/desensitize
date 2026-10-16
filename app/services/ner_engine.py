@@ -155,7 +155,7 @@ class NerEngine:
     def detect(self, text: str) -> list[dict]:
         if not required():
             return self._detect(text)
-        with compute("ner", self._unload):
+        with compute("ner", self._unload, {"text_characters": len(text), "max_tokens": self.max_tokens}):
             if self._session is None:
                 self._initialize_session()
             return self._detect(text)

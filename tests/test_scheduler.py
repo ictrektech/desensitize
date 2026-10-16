@@ -14,7 +14,7 @@ from app.services import scheduler
 
 class AdmissionTests(unittest.TestCase):
     def config(self):
-        return {'app_id': scheduler.APP_ID, 'url': scheduler.URL, 'upstream_url': scheduler.UPSTREAM, 'token': 'a' * 32, 'models': {'model': 'app.model'}, 'gateway_executors': {'model': 'gateway.model'}}
+        return {'app_id': scheduler.APP_ID, 'url': scheduler.URL, 'upstream_url': scheduler.UPSTREAM, 'token': 'a' * 32, 'models': {'model': 'app.model'}, 'gateway_executors': {'model': 'gateway.model'}, 'model_limits': {'model': {'duration_seconds': 10}}}
 
     def controller(self, config, method, path, body=None, key=''):
         self.calls.append((method, path, body))
@@ -71,12 +71,21 @@ class AdmissionTests(unittest.TestCase):
         self.assertFalse(self.calls[-1][2]['stopped'])
         self.assertEqual(scheduler.active, 0)
 
+    def test_direct_call_cannot_exceed_calibrated_input(self):
+        with self.assertRaises(HTTPException):
+            with scheduler.compute('model', Mock(), {'duration_seconds': 11}):
+                self.fail('oversized compute ran')
+        self.assertEqual(self.calls, [])
+        self.assertEqual(scheduler.active, 0)
+
 
 class BindingTests(unittest.TestCase):
     def test_binding_requires_scheduler_identity_and_preserves_revision(self):
         app = FastAPI()
         app.include_router(scheduler.router)
         config = {'protocol_version': 1, 'binding_revision': 2, 'app_id': scheduler.APP_ID, 'url': scheduler.URL, 'upstream_url': scheduler.UPSTREAM, 'token': 'a' * 32, 'executor_token': 'b' * 32, 'models': {'model': 'app.model'}}
+        config['execution_settings'] = scheduler.execution_settings()
+        config['model_limits'] = {'model': {'duration_seconds': 10}}
         client = AsyncMock()
         client.__aenter__.return_value = client
         executor = {'id': 'app.model', 'app_id': scheduler.APP_ID, 'contract_version': '1', 'task_type': 'model.infer', 'upstream_urls': [scheduler.UPSTREAM]}

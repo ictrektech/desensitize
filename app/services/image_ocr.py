@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import gc
 import os
 import threading
 import json
@@ -16,6 +17,7 @@ import numpy as np
 from PIL import Image
 
 from app.services.image_layout import OcrBlock, Point, rect_from_quad
+from app.services.scheduler import compute, required
 
 logger = logging.getLogger("ictrek-desensitize.image_ocr")
 
@@ -33,7 +35,7 @@ class RapidOcrEngine:
             "/modelhub/export/ms/huluxiaohuowa/rapidocr-ppocrv4-onnx/current",
         ))
         self.model_id = os.getenv("DESENSITIZE_IMAGE_OCR_MODEL_ID", "huluxiaohuowa/rapidocr-ppocrv4-onnx")
-        self.model_hub_url = os.getenv("MODEL_HUB_API_URL", "http://model-hub-backend:5005").rstrip("/")
+        self.model_hub_url = os.getenv("MODEL_HUB_API_URL", "http://v-scheduler-model-hub:6005").rstrip("/")
         self.poll_seconds = max(2, int(os.getenv("DESENSITIZE_IMAGE_OCR_MODEL_POLL_SECONDS", "10")))
         self.max_concurrency = max(1, int(os.getenv("DESENSITIZE_IMAGE_OCR_MAX_CONCURRENCY", "1")))
         self.queue_timeout_seconds = max(0.0, float(os.getenv("DESENSITIZE_IMAGE_OCR_QUEUE_TIMEOUT_SECONDS", "20")))
@@ -51,6 +53,20 @@ class RapidOcrEngine:
         threading.Thread(target=self._ensure_model_then_initialize, name="desensitize-image-ocr-modelhub", daemon=True).start()
 
     def detect(self, image: Image.Image) -> list[OcrBlock]:
+        if not required():
+            return self._detect(image)
+        with compute("ocr", self._unload):
+            if self._ocr is None:
+                self._initialize_ocr()
+            return self._detect(image)
+
+    def _unload(self) -> None:
+        with self._lock:
+            self._ocr = None
+            self._active_providers = {}
+        gc.collect()
+
+    def _detect(self, image: Image.Image) -> list[OcrBlock]:
         if not self.enabled:
             raise OcrUnavailable("image OCR is disabled")
         if self._ocr is None:
@@ -131,11 +147,17 @@ class RapidOcrEngine:
         while True:
             try:
                 if not self._missing_model_files():
-                    self._initialize_ocr()
+                    if required():
+                        self._set_state("ready")
+                    else:
+                        self._initialize_ocr()
                     return
                 status = self._model_status()
                 if status == "ready":
-                    self._initialize_ocr()
+                    if required():
+                        self._set_state("ready")
+                    else:
+                        self._initialize_ocr()
                     return
                 if status in {None, "failed"} and not pull_requested:
                     self._request_model_pull()

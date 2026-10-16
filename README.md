@@ -310,3 +310,10 @@ GET /api/v1/system/about
 | 纳税人识别号/统一社会信用代码 | document | [TAXPAYER_ID] |
 | 发票代码/号码 | document | [INVOICE_NUMBER] |
 | 订单号/运单号 | document | [ORDER_NUMBER] |
+# V-Scheduler 接入
+
+VOS 安装依赖统一应用 `com.ictrek.v-scheduler`，打包时从已发布的 GitHub Release 或应用商店解析依赖版本，查询失败则停止打包。模型管理默认地址为 `http://v-scheduler-model-hub:6005`；保留 `MODEL_HUB_API_URL` 配置键供现有安装升级使用，已有安装需将该参数切换到新地址。
+
+共享模型目录继续使用 `MODEL_HUB_SHARED_MODELS_PATH`（默认 `/data/vos_workspace/model_hub`），保留现有模型、导出路径和下载记录。统一模型网关仍使用 `http://v-router:8080/v1`；资源调度接口为 `http://v-router:8080/scheduler/api/v1`。接入及资源授权契约见 [V-Scheduler 接入指南](https://github.com/ictrektech/V-Scheduler/blob/main/docs/application-integration.md)。模型目录可见不代表本地推理已获调度授权。
+
+VOS 包中的 NER 和 OCR 需要 V-Scheduler 批准的 `ner`、`ocr` 执行器。绑定接收端为 `POST /api/v1/scheduler/binding`，只接受 VOS 核验后的 V-Scheduler 应用身份，私有配置保存在 `/data/scheduler.local.json`（0600）。ONNX 模型改为许可内懒加载，调用结束卸载后释放；未获模型授权时返回 503。纯规则脱敏不申请模型资源，继续可用。`GET /api/v1/discovery` 返回可用模型与不含凭据的绑定状态。

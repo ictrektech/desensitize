@@ -30,11 +30,14 @@ x-desensitize-frontend-base: &desensitize-frontend-base
 
 x-desensitize-backend-env: &desensitize-backend-env
   DESENSITIZE_DATA_DIR: /data
+  DESENSITIZE_SCHEDULER_REQUIRED: "true"
+  VOS_API_GW_PORT_INTERNAL: ${VOS_API_GW_PORT_INTERNAL}
+  VOS_USERINFO_URL: http://${VOS_HOST_GW_IP}:${VOS_API_GW_PORT_INTERNAL}/v1000/oauth2/userinfo
   DESENSITIZE_APP_VERSION: "__APP_VERSION__"
   # Model Hub owns the model lifecycle. This app only consumes its read-only export.
   DESENSITIZE_NER_ENABLED: ${DESENSITIZE_NER_ENABLED:-true}
   DESENSITIZE_NER_MODEL_DIR: /modelhub/export/ms/huluxiaohuowa/bert4ner-base-chinese-onnx/current
-  MODEL_HUB_API_URL: ${MODEL_HUB_API_URL:-http://model-hub-backend:5005}
+  MODEL_HUB_API_URL: ${MODEL_HUB_API_URL:-http://v-scheduler-model-hub:6005}
   DESENSITIZE_NER_PROVIDER: cpu
   DESENSITIZE_NER_MAX_CONCURRENCY: ${DESENSITIZE_NER_MAX_CONCURRENCY:-4}
   DESENSITIZE_NER_QUEUE_TIMEOUT_SECONDS: ${DESENSITIZE_NER_QUEUE_TIMEOUT_SECONDS:-30}

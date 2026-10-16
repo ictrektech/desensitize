@@ -1,6 +1,7 @@
 """Reusable ONNX Runtime NER engine for optional semantic desensitization."""
 
 import json
+import gc
 import logging
 import os
 import threading
@@ -8,6 +9,7 @@ import time
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 from pathlib import Path
+from app.services.scheduler import compute, required
 
 logger = logging.getLogger("ictrek-desensitize.ner")
 
@@ -24,7 +26,7 @@ class NerEngine:
             "/modelhub/export/ms/huluxiaohuowa/bert4ner-base-chinese-onnx/current",
         ))
         self.provider = os.getenv("DESENSITIZE_NER_PROVIDER", "auto").lower()
-        self.model_hub_url = os.getenv("MODEL_HUB_API_URL", "http://model-hub-backend:5005").rstrip("/")
+        self.model_hub_url = os.getenv("MODEL_HUB_API_URL", "http://v-scheduler-model-hub:6005").rstrip("/")
         self.model_id = os.getenv("DESENSITIZE_NER_MODEL_ID", "huluxiaohuowa/bert4ner-base-chinese-onnx")
         self.poll_seconds = max(2, int(os.getenv("DESENSITIZE_NER_MODEL_POLL_SECONDS", "10")))
         self.max_tokens = int(os.getenv("DESENSITIZE_NER_MAX_TOKENS", "512"))
@@ -103,7 +105,10 @@ class NerEngine:
             try:
                 status = self._model_status()
                 if status == "ready":
-                    self._initialize_session()
+                    if required():
+                        self._set_state("ready")
+                    else:
+                        self._initialize_session()
                     return
                 if status in {None, "failed"} and not pull_requested:
                     self._request_model_pull()
@@ -148,6 +153,19 @@ class NerEngine:
             logger.exception("NER initialization failed; regex mode remains available")
 
     def detect(self, text: str) -> list[dict]:
+        if not required():
+            return self._detect(text)
+        with compute("ner", self._unload):
+            if self._session is None:
+                self._initialize_session()
+            return self._detect(text)
+
+    def _unload(self) -> None:
+        self._session = None
+        self._tokenizer = None
+        gc.collect()
+
+    def _detect(self, text: str) -> list[dict]:
         if not self.enabled:
             raise NerUnavailable("NER is disabled")
         if self._session is None or self._tokenizer is None:

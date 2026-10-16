@@ -23,6 +23,7 @@ from app.routers import models as models_router
 from app.services.rule_store import rule_store
 from app.services.ner_engine import ner_engine
 from app.services.image_ocr import image_ocr_engine
+from app.services.scheduler import SchedulerHeadersMiddleware, binding_status, router as scheduler_router
 
 logging.basicConfig(
     level=logging.INFO,
@@ -47,6 +48,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.add_middleware(SchedulerHeadersMiddleware)
+app.include_router(scheduler_router)
 
 
 @app.middleware("http")
@@ -95,6 +98,26 @@ async def health_check():
 @app.head("/health", include_in_schema=False)
 async def health_check_head():
     return {"status": "ok", "service": "ictrek-desensitize"}
+
+
+@app.get("/api/v1/discovery")
+async def discovery():
+    ready = []
+    if ner_engine.enabled and (ner_engine.model_dir / "model.onnx").is_file():
+        ready.append("ner")
+    if image_ocr_engine.enabled and not image_ocr_engine._missing_model_files():
+        ready.append("ocr")
+    return {"service_id": "desensitize", "scheduler": {
+        "protocol_version": 1, "app_id": "com.ictrek.desensitize",
+        "binding_endpoint": "/api/v1/scheduler/binding",
+        "executor_base_url": "http://desensitize-backend:5000",
+        "upstream_url": "http://desensitize-backend:5000/v1",
+        "provider": ner_engine.provider, "ocr_provider": image_ocr_engine.provider,
+        "num_threads": int(os.getenv("DESENSITIZE_NER_INTRA_OP_THREADS", "4")),
+        "max_concurrent_inference": 1, "max_tokens": ner_engine.max_tokens,
+        "sync_models": [{"id": model, "task_type": "model.infer"} for model in ready],
+        "binding": binding_status(),
+    }}
 
 
 @app.get("/api/v1/system/about", summary="运行信息")

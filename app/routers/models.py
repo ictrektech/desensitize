@@ -17,7 +17,7 @@ from app.services.ner_engine import ner_engine
 router = APIRouter(prefix="/api/v1/models", tags=["models"])
 
 
-MODEL_HUB_URL = os.getenv("MODEL_HUB_API_URL", "http://model-hub-backend:5005").rstrip("/")
+MODEL_HUB_URL = os.getenv("MODEL_HUB_API_URL", "http://v-scheduler-model-hub:6005").rstrip("/")
 
 MANAGED_MODELS = {
     "ner": {

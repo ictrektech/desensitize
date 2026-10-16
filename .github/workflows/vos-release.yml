@@ -28,6 +28,15 @@ jobs:
           }
           EOF
 
+      - name: Install packaging dependencies
+        run: python3 -m pip install 'PyYAML>=6,<7'
+
+      - name: Connect dependency catalog tunnel
+        env:
+          APPSTORE_IP: ${{ secrets.APPSTORE_IP }}
+          APPSTORE_TOKEN: ${{ secrets.APPSTORE_TOKEN }}
+        run: bash ictrek.app/scripts/appstore_tunnel.sh open
+
       - name: Build pull-mode package
         env:
           FEISHU_SPREADSHEET_TOKEN: ${{ secrets.FEISHU_SPREADSHEET_TOKEN }}
@@ -36,6 +45,12 @@ jobs:
           VERSION="${GITHUB_REF_NAME#vos-desensitize-v}"
           PACKAGE_VERSION="$VERSION" ./ictrek.app/scripts/package.sh
           test -f "ictrek.app/dist/desensitize_${VERSION}_pull.tar"
+
+      - name: Close dependency catalog tunnel
+        if: always()
+        env:
+          APPSTORE_IP: ${{ secrets.APPSTORE_IP }}
+        run: bash ictrek.app/scripts/appstore_tunnel.sh close
 
       - name: Create release notes
         env:

@@ -416,6 +416,7 @@ main() {
 
   # Render templates (compose 文件需要先有 .env 才能替换 ${..._IMAGE} 变量)
   render_template "$SRC_DIR/manifest.yml" "$STAGE_DIR/manifest.yml"
+  python3 "${ROOT_DIR}/scripts/resolve_dependencies.py" "${STAGE_DIR}/manifest.yml" --repositories "${ROOT_DIR}/scripts/dependency-releases.json"
   render_compose_file "$SRC_DIR/docker-compose.yml" "$STAGE_DIR/docker-compose.yml" "$STAGE_DIR/.env"
   render_template "$SRC_DIR/configs.yml" "$STAGE_DIR/configs.yml"
   render_template "$SRC_DIR/routers.yml" "$STAGE_DIR/routers.yml"

@@ -34,7 +34,7 @@ POST $BASE_URL/api/v1/desensitize/text`}</div>
 
       <div className="card">
         <div className="card-title">模型依赖</div>
-        <p>NER 与图片 OCR 模型都不随脱敏镜像发布。启动后后端会通过 VOS alias <code>model-hub-backend:5005</code> 查询并自动请求 Model Hub 下载 ModelScope 模型；安装参数中的 Model Hub 共享目录默认是 <code>/data/vos_workspace/model_hub</code>，后端会将该总目录只读挂载为 <code>/modelhub</code>。</p>
+        <p>NER 与图片 OCR 模型都不随脱敏镜像发布。后端通过 VOS alias <code>v-scheduler-model-hub:6005</code> 查询并请求 V-Scheduler 下载 ModelScope 模型；共享目录继续使用 <code>/data/vos_workspace/model_hub</code>，只读挂载为 <code>/modelhub</code>。NER 与 OCR 推理需要 V-Scheduler 授权，未授权时纯规则脱敏仍可用。</p>
         <div className="code-block">{`容器内模型路径：
 /modelhub/export/ms/huluxiaohuowa/bert4ner-base-chinese-onnx/current
 /modelhub/export/ms/huluxiaohuowa/rapidocr-ppocrv4-onnx/current

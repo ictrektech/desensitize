@@ -17,6 +17,12 @@ frontend:
 platform:
   version: ">=3.0.0"
 
+dependencies:
+  apps:
+    - id: com.ictrek.v-scheduler
+      version: latest
+      optional: false
+
 profiles:
   - name: amd
     title:

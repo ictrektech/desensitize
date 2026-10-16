@@ -4,10 +4,10 @@
 
 ## 前置依赖
 
-> ⚠️ **本服务的 NER 与图片 OCR 功能依赖 Model Hub**
+> ⚠️ **本服务的 NER 与图片 OCR 功能依赖 V-Scheduler 的模型管理与调度**
 >
 > NER 模型（`huluxiaohuowa/bert4ner-base-chinese-onnx`）和图片 OCR 模型
->（`huluxiaohuowa/rapidocr-ppocrv4-onnx`）不随本应用镜像提供，需要通过 Model Hub 下载。
+>（`huluxiaohuowa/rapidocr-ppocrv4-onnx`）不随本应用镜像提供，需要通过 V-Scheduler 下载；公共模型目录与原 Model Hub 完全相同，保留兼容的 API 配置键。
 > 首次使用时，本服务会自动调用 Model Hub API 触发模型下载，也可在 Web 的“模型管理”页面手动触发下载、检查版本和更新。模型下载过程中：
 > - 纯正则脱敏 API 始终可用，不受影响
 > - `ner=true` 请求会返回 503 及"模型下载中，请稍后"提示

@@ -26,7 +26,8 @@ def decode_image_base64(image_base64: str, *, scheduled_model: str = "") -> Imag
     try:
         if scheduled_model:
             from app.services.scheduler import validate_limits
-            validate_limits(scheduled_model, {"input_bytes": len(image_base64) * 3 // 4})
+            padding = min(2, len(image_base64) - len(image_base64.rstrip("=")))
+            validate_limits(scheduled_model, {"input_bytes": max(0, len(image_base64) * 3 // 4 - padding)})
         raw = base64.b64decode(image_base64, validate=False)
         with Image.open(io.BytesIO(raw)) as image:
             if scheduled_model:

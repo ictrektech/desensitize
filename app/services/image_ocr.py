@@ -18,6 +18,7 @@ from PIL import Image
 
 from app.services.image_layout import OcrBlock, Point, rect_from_quad
 from app.services.scheduler import compute, required
+from app.services.model_identity import matches_model
 
 logger = logging.getLogger("ictrek-desensitize.image_ocr")
 
@@ -117,7 +118,7 @@ class RapidOcrEngine:
         if not isinstance(models, list):
             raise OcrUnavailable("Model Hub returned an invalid model list")
         for model in models:
-            if isinstance(model, dict) and model.get("model_id") == self.model_id:
+            if isinstance(model, dict) and matches_model(model, self.model_id):
                 return str(model.get("status", ""))
         return None
 

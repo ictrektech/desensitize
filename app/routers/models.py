@@ -12,6 +12,7 @@ from urllib.request import Request, urlopen
 from fastapi import APIRouter, HTTPException
 
 from app.services.image_ocr import image_ocr_engine
+from app.services.model_identity import matches_model
 from app.services.ner_engine import ner_engine
 
 router = APIRouter(prefix="/api/v1/models", tags=["models"])
@@ -62,13 +63,13 @@ def _model_hub_json(path: str, method: str = "GET", payload: dict | None = None)
 
 def _find_model(models: list[dict], model_id: str) -> dict | None:
     for model in models:
-        if isinstance(model, dict) and model.get("model_id") == model_id:
+        if isinstance(model, dict) and matches_model(model, model_id):
             return model
     return None
 
 
 def _find_task(tasks: list[dict], model_id: str) -> dict | None:
-    candidates = [task for task in tasks if isinstance(task, dict) and task.get("model_id") == model_id]
+    candidates = [task for task in tasks if isinstance(task, dict) and matches_model(task, model_id)]
     if not candidates:
         return None
     phase_order = {"PENDING": 0, "DOWNLOADING": 1, "VERIFYING": 2, "READY": 3, "FAILED": 4}

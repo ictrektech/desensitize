@@ -10,6 +10,7 @@ from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 from pathlib import Path
 from app.services.scheduler import compute, required
+from app.services.model_identity import matches_model
 
 logger = logging.getLogger("ictrek-desensitize.ner")
 
@@ -83,7 +84,7 @@ class NerEngine:
         if not isinstance(models, list):
             raise NerUnavailable("Model Hub returned an invalid model list")
         for model in models:
-            if isinstance(model, dict) and model.get("model_id") == self.model_id:
+            if isinstance(model, dict) and matches_model(model, self.model_id):
                 return str(model.get("status", ""))
         return None
 

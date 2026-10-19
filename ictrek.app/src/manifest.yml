@@ -3,8 +3,8 @@ name:
   zh-CN: 数据脱敏服务
   en: Desensitize Service
 description:
-  zh-CN: 基于正则规则的敏感信息识别与脱敏 HTTP API，供 WeKnora、agent-room 等应用在调用云模型前统一脱敏。
-  en: Regex-based sensitive information detection and desensitization HTTP API service.
+  zh-CN: 文本与图片敏感信息脱敏服务，支持正则规则、NER 和 OCR；模型管理与推理授权由 V-Scheduler 统一提供。
+  en: Text and image redaction with regex rules, NER and OCR, using V-Scheduler for model management and inference authorization.
 version: __APP_VERSION__
 author: ictrek
 category: [ai]
@@ -29,8 +29,8 @@ profiles:
       zh-CN: AMD64 CUDA
       en: AMD64 CUDA
     description:
-      zh-CN: AMD64 平台，声明 nvidia runtime，未来可加载 PyTorch NER 模型。
-      en: AMD64 platform with nvidia runtime, can load PyTorch NER models in the future.
+      zh-CN: AMD64 平台，声明 nvidia runtime，通过 V-Scheduler 授权运行 ONNX NER/OCR 模型。
+      en: AMD64 platform with nvidia runtime, runs ONNX NER/OCR models with V-Scheduler authorization.
     caps:
       arch: amd64
       software: [cuda]
@@ -50,8 +50,8 @@ profiles:
       zh-CN: ARM CUDA
       en: ARM CUDA
     description:
-      zh-CN: ARM64 平台，声明 nvidia runtime，未来可加载 PyTorch NER 模型。
-      en: ARM64 platform with nvidia runtime, can load PyTorch NER models in the future.
+      zh-CN: ARM64 平台，声明 nvidia runtime，通过 V-Scheduler 授权运行 ONNX NER/OCR 模型。
+      en: ARM64 platform with nvidia runtime, runs ONNX NER/OCR models with V-Scheduler authorization.
     caps:
       device-type: generic
       arch: arm64
@@ -72,8 +72,8 @@ profiles:
       zh-CN: Jetson / L4T
       en: Jetson / L4T
     description:
-      zh-CN: Jetson / L4T 平台（如 tc192），未来可加载 PyTorch NER 模型。
-      en: Jetson / L4T platform (e.g. tc192), can load PyTorch NER models in the future.
+      zh-CN: Jetson / L4T 平台（如 tc192），通过 V-Scheduler 授权运行 ONNX NER/OCR 模型。
+      en: Jetson / L4T platform (e.g. tc192), runs ONNX NER/OCR models with V-Scheduler authorization.
     caps:
       device-type:
         - any-of: [l4t, jetson]
@@ -85,8 +85,8 @@ profiles:
       zh-CN: Thor Spark
       en: Thor Spark
     description:
-      zh-CN: Thor Spark 平台（如 tc81），未来可加载 PyTorch NER 模型。
-      en: Thor Spark platform (e.g. tc81), can load PyTorch NER models in the future.
+      zh-CN: Thor Spark 平台（如 tc81），通过 V-Scheduler 授权运行 ONNX NER/OCR 模型。
+      en: Thor Spark platform (e.g. tc81), runs ONNX NER/OCR models with V-Scheduler authorization.
     caps:
       device-type:
         - any-of: [thor-spark, thor]

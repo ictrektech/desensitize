@@ -1,3 +1,4 @@
+import { useI18n } from '../i18n'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { api, ManagedModelInfo } from '../api/client'
 
@@ -9,16 +10,16 @@ function percent(model: ManagedModelInfo) {
   return model.ready ? 100 : 0
 }
 
-function statusText(model: ManagedModelInfo) {
+function statusText(model: ManagedModelInfo, t: (key: string) => string) {
   const task = model.task
   if (task && !['READY', 'FAILED'].includes(task.phase)) {
     return `${task.phase} · ${percent(model).toFixed(1)}%`
   }
-  if (model.ready) return '已就绪'
-  if (model.status === 'failed') return '下载失败'
-  if (model.status === 'pulling') return '下载中'
-  if (model.status === 'missing') return '未下载'
-  return model.status || '未知'
+  if (model.ready) return t("已就绪")
+  if (model.status === 'failed') return t("下载失败")
+  if (model.status === 'pulling') return t("下载中")
+  if (model.status === 'missing') return t("未下载")
+  return model.status || t("未知")
 }
 
 function sizeText(bytes?: number) {
@@ -34,9 +35,10 @@ function sizeText(bytes?: number) {
 }
 
 export default function ModelsPage() {
+  const { t } = useI18n()
   const [models, setModels] = useState<ManagedModelInfo[]>([])
   const [loading, setLoading] = useState(true)
-  const [message, setMessage] = useState('')
+  const [message, setMessage] = useState<{ key: string; model: string } | null>(null)
   const [error, setError] = useState('')
   const [busyKey, setBusyKey] = useState<string | null>(null)
 
@@ -55,7 +57,7 @@ export default function ModelsPage() {
       const ordered = MODEL_KEYS.map(key => data.find(model => model.key === key)).filter(Boolean) as ManagedModelInfo[]
       setModels(ordered)
     } catch (e: any) {
-      setError(e.message || '加载模型状态失败')
+      setError(e.message || "加载模型状态失败")
     } finally {
       if (!silent) setLoading(false)
     }
@@ -74,40 +76,38 @@ export default function ModelsPage() {
   const runAction = async (key: 'ner' | 'ocr', action: 'download' | 'check' | 'update') => {
     setBusyKey(`${key}:${action}`)
     setError('')
-    setMessage('')
+    setMessage(null)
     try {
       if (action === 'download') {
         await api.downloadManagedModel(key)
-        setMessage(`${key === 'ner' ? 'NER' : 'OCR'} 模型下载已触发`)
+        setMessage({ key: '{model} 模型下载已触发', model: key.toUpperCase() })
       } else if (action === 'check') {
         const resp = await api.checkManagedModelUpdate(key)
         const result = resp.result || {}
-        setMessage(result.has_update ? `${resp.model.name} 有新版本` : `${resp.model.name} 已是最新版本`)
+        setMessage({ key: result.has_update ? '{model} 有新版本' : '{model} 已是最新版本', model: resp.model.name })
       } else {
         await api.updateManagedModel(key)
-        setMessage(`${key === 'ner' ? 'NER' : 'OCR'} 模型更新已触发`)
+        setMessage({ key: '{model} 模型更新已触发', model: key.toUpperCase() })
       }
       await loadModels(true)
     } catch (e: any) {
-      setError(e.message || '模型操作失败')
+      setError(e.message || "模型操作失败")
       await loadModels(true)
     } finally {
       setBusyKey(null)
     }
   }
 
-  if (loading) return <div className="empty-state">加载模型状态...</div>
+  if (loading) return <div className="empty-state">{t("加载模型状态...")}</div>
 
   return (
     <div>
-      {message && <div className="card"><div className="result-box">{message}</div></div>}
-      {error && <div className="card"><div className="result-box error">{error}</div></div>}
+      {message && <div className="card"><div className="result-box">{t(message.key, { model: t(message.model) })}</div></div>}
+      {error && <div className="card"><div className="result-box error">{t(error)}</div></div>}
 
       <div className="card">
-        <div className="card-title">模型管理</div>
-        <p className="model-help">
-          NER 与 OCR 模型由 Model Hub 管理。这里的按钮只触发 Model Hub 下载、版本检查和更新；模型未就绪不影响文本纯规则脱敏。
-        </p>
+        <div className="card-title">{t("模型管理")}</div>
+        <p className="model-help">{t("NER 与 OCR 模型由 V-Scheduler 管理。可在这里下载、检查版本和更新模型；推理需在 V-Scheduler 中授权。模型未就绪不影响文本纯规则脱敏。")}</p>
         <div className="model-grid">
           {models.map(model => {
             const running = Boolean(model.task && !['READY', 'FAILED'].includes(model.task.phase))
@@ -117,19 +117,19 @@ export default function ModelsPage() {
               <div className={`model-card ${cardClass}`} key={model.key}>
                 <div className="model-card-header">
                   <div>
-                    <h3>{model.name}</h3>
-                    <p>{model.description}</p>
+                    <h3>{t(model.name)}</h3>
+                    <p>{t(model.description)}</p>
                   </div>
-                  <span className={`model-status ${cardClass}`}>{statusText(model)}</span>
+                  <span className={`model-status ${cardClass}`}>{statusText(model, t)}</span>
                 </div>
 
                 <div className="model-meta">
-                  <div><span>模型 ID</span><code>{model.model_id}</code></div>
-                  <div><span>加载路径</span><code>{model.model_dir}</code></div>
-                  <div><span>当前版本</span><code>{model.model?.version || '-'}</code></div>
-                  <div><span>大小</span><code>{sizeText(Number(model.model?.size || 0))}</code></div>
-                  <div><span>运行状态</span><code>{model.runtime?.state || '-'}</code></div>
-                  <div><span>任务</span><code>{model.task ? `${model.task.phase} / ${model.task.task_id}` : '-'}</code></div>
+                  <div><span>{t("模型 ID")}</span><code>{model.model_id}</code></div>
+                  <div><span>{t("加载路径")}</span><code>{model.model_dir}</code></div>
+                  <div><span>{t("当前版本")}</span><code>{model.model?.version || '-'}</code></div>
+                  <div><span>{t("大小")}</span><code>{sizeText(Number(model.model?.size || 0))}</code></div>
+                  <div><span>{t("运行状态")}</span><code>{model.runtime?.state || '-'}</code></div>
+                  <div><span>{t("任务")}</span><code>{model.task ? `${model.task.phase} / ${model.task.task_id}` : '-'}</code></div>
                 </div>
 
                 <progress className="model-progress" max="100" value={percent(model)} />
@@ -142,22 +142,18 @@ export default function ModelsPage() {
                     disabled={model.ready || running || busyKey !== null}
                     onClick={() => runAction(model.key, 'download')}
                   >
-                    {running ? '下载中' : model.ready ? '已下载' : '下载模型'}
+                    {running ? t("下载中") : model.ready ? t("已下载") : t("下载模型")}
                   </button>
                   <button
                     className="btn"
                     disabled={running || busyKey !== null}
                     onClick={() => runAction(model.key, 'check')}
-                  >
-                    检查版本
-                  </button>
+                  >{t("检查版本")}</button>
                   <button
                     className="btn"
                     disabled={!canUpdate || busyKey !== null}
                     onClick={() => runAction(model.key, 'update')}
-                  >
-                    更新模型
-                  </button>
+                  >{t("更新模型")}</button>
                 </div>
               </div>
             )

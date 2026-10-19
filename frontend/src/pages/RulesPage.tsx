@@ -1,3 +1,4 @@
+import { useI18n } from '../i18n'
 import { useState } from 'react'
 import { api, Rule } from '../api/client'
 
@@ -7,6 +8,7 @@ interface Props {
 }
 
 export default function RulesPage({ rules, onRefresh }: Props) {
+  const { t } = useI18n()
   const [showModal, setShowModal] = useState(false)
   const [editingRule, setEditingRule] = useState<Rule | null>(null)
   const [form, setForm] = useState({
@@ -53,11 +55,11 @@ export default function RulesPage({ rules, onRefresh }: Props) {
   const handleTest = async () => {
     setError('')
     if (!form.pattern) {
-      setError('请先填写正则表达式')
+      setError("请先填写正则表达式")
       return
     }
     if (!testText) {
-      setError('请输入测试文本')
+      setError("请输入测试文本")
       return
     }
     setTesting(true)
@@ -65,7 +67,7 @@ export default function RulesPage({ rules, onRefresh }: Props) {
       const result = await api.testPattern(form.pattern, testText, form.placeholder)
       setTestResult(result)
     } catch (e: any) {
-      setError(e.message || '测试失败')
+      setError(e.message || "测试失败")
       setTestResult(null)
     } finally {
       setTesting(false)
@@ -75,7 +77,7 @@ export default function RulesPage({ rules, onRefresh }: Props) {
   const handleSave = async () => {
     setError('')
     if (!form.name || !form.pattern) {
-      setError('名称和正则表达式为必填项')
+      setError("名称和正则表达式为必填项")
       return
     }
     try {
@@ -87,17 +89,17 @@ export default function RulesPage({ rules, onRefresh }: Props) {
       setShowModal(false)
       onRefresh()
     } catch (e: any) {
-      setError(e.message || '保存失败')
+      setError(e.message || "保存失败")
     }
   }
 
   const handleDelete = async (id: string) => {
-    if (!confirm('确定删除这条自定义规则？')) return
+    if (!confirm(t("确定删除这条自定义规则？"))) return
     try {
       await api.deleteRule(id)
       onRefresh()
     } catch (e: any) {
-      alert(e.message || '删除失败')
+      alert(e.message || "删除失败")
     }
   }
 
@@ -106,7 +108,7 @@ export default function RulesPage({ rules, onRefresh }: Props) {
       await api.updateRule(rule.id, { enabled: !rule.enabled })
       onRefresh()
     } catch (e: any) {
-      alert(e.message || '更新失败')
+      alert(e.message || "更新失败")
     }
   }
 
@@ -125,44 +127,41 @@ export default function RulesPage({ rules, onRefresh }: Props) {
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-        <h2 style={{ fontSize: '18px' }}>规则列表</h2>
-        <button className="btn btn-primary" onClick={openCreate}>+ 添加规则</button>
+        <h2 style={{ fontSize: '18px' }}>{t("规则列表")}</h2>
+        <button className="btn btn-primary" onClick={openCreate}>{t("+ 添加规则")}</button>
       </div>
 
       {/* 内置规则 */}
       <div className="card" style={{ padding: '12px 16px', marginBottom: '16px' }}>
-        <div className="card-title" style={{ marginBottom: '8px' }}>
-          内置规则 ({builtinRules.length})
-          <span style={{ fontSize: '12px', color: 'var(--text-secondary)', fontWeight: 'normal', marginLeft: '8px' }}>
-            可启用/停用，不可修改、不可删除
-          </span>
+        <div className="card-title" style={{ marginBottom: '8px' }}>{t("内置规则 (")}{builtinRules.length})
+          <span style={{ fontSize: '12px', color: 'var(--text-secondary)', fontWeight: 'normal', marginLeft: '8px' }}>{t("可启用/停用，不可修改、不可删除")}</span>
         </div>
       </div>
       {builtinRules.map(rule => (
         <div key={rule.id} className="rule-item">
           <div className="rule-header">
-            <span className="rule-name">{rule.name}</span>
-            <span className="badge badge-builtin">内置</span>
+            <span className="rule-name">{rule.builtin ? t(rule.name) : rule.name}</span>
+            <span className="badge badge-builtin">{t("内置")}</span>
             {categoryBadge(rule.category)}
             <button
               className={`rule-switch ${rule.enabled ? 'active' : ''}`}
               onClick={() => handleToggle(rule)}
               aria-pressed={rule.enabled}
-              title={rule.enabled ? '停用此规则' : '启用此规则'}
+              title={rule.enabled ? t("停用此规则") : t("启用此规则")}
             >
-              <span className="rule-switch-label">开关</span>
+              <span className="rule-switch-label">{t("开关")}</span>
               <span className="rule-switch-dot" />
-              <span>{rule.enabled ? '已启用，点此停用' : '已停用，点此启用'}</span>
+              <span>{rule.enabled ? t("已启用，点此停用") : t("已停用，点此启用")}</span>
             </button>
-            <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>优先级: {rule.priority}</span>
+            <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>{t("优先级:")}{rule.priority}</span>
           </div>
-          {rule.description && <div className="rule-description">{rule.description}</div>}
+          {rule.description && <div className="rule-description">{rule.builtin ? t(rule.description) : rule.description}</div>}
           <div>
-            <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>正则: </span>
+            <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>{t("正则:")}</span>
             <span className="rule-pattern">{rule.pattern}</span>
           </div>
           <div>
-            <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>替换为: </span>
+            <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>{t("替换为:")}</span>
             <span className="rule-placeholder">{rule.placeholder}</span>
           </div>
         </div>
@@ -170,47 +169,42 @@ export default function RulesPage({ rules, onRefresh }: Props) {
 
       {/* 自定义规则 */}
       <div className="card" style={{ padding: '12px 16px', marginBottom: '16px', marginTop: '24px' }}>
-        <div className="card-title" style={{ marginBottom: '8px' }}>
-          自定义规则 ({customRules.length})
-          <span style={{ fontSize: '12px', color: 'var(--text-secondary)', fontWeight: 'normal', marginLeft: '8px' }}>
-            可添加、修改、删除、启用/停用
-          </span>
+        <div className="card-title" style={{ marginBottom: '8px' }}>{t("自定义规则 (")}{customRules.length})
+          <span style={{ fontSize: '12px', color: 'var(--text-secondary)', fontWeight: 'normal', marginLeft: '8px' }}>{t("可添加、修改、删除、启用/停用")}</span>
         </div>
       </div>
       {customRules.length === 0 ? (
-        <div className="empty-state" style={{ padding: '20px' }}>
-          暂无自定义规则，点击右上角"添加规则"创建
-        </div>
+        <div className="empty-state" style={{ padding: '20px' }}>{t("暂无自定义规则，点击右上角\"添加规则\"创建")}</div>
       ) : (
         customRules.map(rule => (
           <div key={rule.id} className="rule-item">
             <div className="rule-header">
-              <span className="rule-name">{rule.name}</span>
-              <span className="badge badge-custom">自定义</span>
+              <span className="rule-name">{rule.builtin ? t(rule.name) : rule.name}</span>
+              <span className="badge badge-custom">{t("自定义")}</span>
               {categoryBadge(rule.category)}
               <button
                 className={`rule-switch ${rule.enabled ? 'active' : ''}`}
                 onClick={() => handleToggle(rule)}
                 aria-pressed={rule.enabled}
-                title={rule.enabled ? '停用此规则' : '启用此规则'}
+                title={rule.enabled ? t("停用此规则") : t("启用此规则")}
               >
-                <span className="rule-switch-label">开关</span>
+                <span className="rule-switch-label">{t("开关")}</span>
                 <span className="rule-switch-dot" />
-                <span>{rule.enabled ? '已启用，点此停用' : '已停用，点此启用'}</span>
+                <span>{rule.enabled ? t("已启用，点此停用") : t("已停用，点此启用")}</span>
               </button>
-              <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>优先级: {rule.priority}</span>
+              <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>{t("优先级:")}{rule.priority}</span>
               <div className="rule-actions">
-                <button className="btn btn-sm" onClick={() => openEdit(rule)}>编辑</button>
-                <button className="btn btn-sm btn-danger" onClick={() => handleDelete(rule.id)}>删除</button>
+                <button className="btn btn-sm" onClick={() => openEdit(rule)}>{t("编辑")}</button>
+                <button className="btn btn-sm btn-danger" onClick={() => handleDelete(rule.id)}>{t("删除")}</button>
               </div>
             </div>
-            {rule.description && <div className="rule-description">{rule.description}</div>}
+            {rule.description && <div className="rule-description">{rule.builtin ? t(rule.description) : rule.description}</div>}
             <div>
-              <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>正则: </span>
+              <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>{t("正则:")}</span>
               <span className="rule-pattern">{rule.pattern}</span>
             </div>
             <div>
-              <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>替换为: </span>
+              <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>{t("替换为:")}</span>
               <span className="rule-placeholder">{rule.placeholder}</span>
             </div>
           </div>
@@ -220,43 +214,43 @@ export default function RulesPage({ rules, onRefresh }: Props) {
       {showModal && (
         <div className="modal-overlay" onClick={() => setShowModal(false)}>
           <div className="modal" onClick={e => e.stopPropagation()}>
-            <div className="modal-title">{editingRule ? '编辑规则' : '添加自定义规则'}</div>
+            <div className="modal-title">{editingRule ? t("编辑规则") : t("添加自定义规则")}</div>
 
-            {error && <div className="result-box error">{error}</div>}
+            {error && <div className="result-box error">{t(error)}</div>}
 
             <div className="form-group">
-              <label className="form-label">规则名称 *</label>
+              <label className="form-label">{t("规则名称 *")}</label>
               <input
                 className="form-input"
                 value={form.name}
                 onChange={e => setForm({ ...form, name: e.target.value })}
-                placeholder="例如: 企业微信Token"
+                placeholder={t("例如: 企业微信Token")}
               />
             </div>
 
             <div className="form-group">
-              <label className="form-label">描述</label>
+              <label className="form-label">{t("描述")}</label>
               <input
                 className="form-input"
                 value={form.description}
                 onChange={e => setForm({ ...form, description: e.target.value })}
-                placeholder="规则用途说明"
+                placeholder={t("规则用途说明")}
               />
             </div>
 
             <div className="form-group">
-              <label className="form-label">正则表达式 *</label>
+              <label className="form-label">{t("正则表达式 *")}</label>
               <textarea
                 className="form-textarea"
                 value={form.pattern}
                 onChange={e => setForm({ ...form, pattern: e.target.value })}
-                placeholder="例如: \b(wwapi_[A-Za-z0-9]{20,})\b"
+                placeholder={t("例如: \\b(wwapi_[A-Za-z0-9]{20,})\\b")}
               />
             </div>
 
             <div className="form-row">
               <div className="form-group">
-                <label className="form-label">替换占位符</label>
+                <label className="form-label">{t("替换占位符")}</label>
                 <input
                   className="form-input"
                   value={form.placeholder}
@@ -265,7 +259,7 @@ export default function RulesPage({ rules, onRefresh }: Props) {
                 />
               </div>
               <div className="form-group">
-                <label className="form-label">优先级 (0-100)</label>
+                <label className="form-label">{t("优先级 (0-100)")}</label>
                 <input
                   className="form-input"
                   type="number"
@@ -278,15 +272,15 @@ export default function RulesPage({ rules, onRefresh }: Props) {
             </div>
 
             <div className="form-group">
-              <label className="form-label">分类</label>
+              <label className="form-label">{t("分类")}</label>
               <select
                 className="form-select"
                 value={form.category}
                 onChange={e => setForm({ ...form, category: e.target.value })}
               >
-                <option value="custom">自定义</option>
-                <option value="pii">PII (个人信息)</option>
-                <option value="api_key">API Key (凭证)</option>
+                <option value="custom">{t("自定义")}</option>
+                <option value="pii">{t("PII (个人信息)")}</option>
+                <option value="api_key">{t("API Key (凭证)")}</option>
               </select>
             </div>
 
@@ -295,37 +289,35 @@ export default function RulesPage({ rules, onRefresh }: Props) {
                 type="checkbox"
                 checked={form.enabled}
                 onChange={e => setForm({ ...form, enabled: e.target.checked })}
-              />
-              启用此规则
-            </label>
+              />{t("启用此规则")}</label>
 
             {/* 测试区域 */}
             <div style={{ borderTop: '1px solid var(--border)', paddingTop: '16px', marginBottom: '8px' }}>
               <div className="form-group">
-                <label className="form-label">测试文本（保存前验证规则是否生效）</label>
+                <label className="form-label">{t("测试文本（保存前验证规则是否生效）")}</label>
                 <textarea
                   className="form-textarea"
                   value={testText}
                   onChange={e => setTestText(e.target.value)}
-                  placeholder="输入一段包含敏感信息的文本，例如: 我的密钥是 wwapi_abc123def456ghi789jkl"
+                  placeholder={t("输入一段包含敏感信息的文本，例如: 我的密钥是 wwapi_abc123def456ghi789jkl")}
                   style={{ minHeight: '60px' }}
                 />
               </div>
               <button className="btn" onClick={handleTest} disabled={testing || !form.pattern || !testText}>
-                {testing ? '测试中...' : '测试规则'}
+                {testing ? t("测试中...") : t("测试规则")}
               </button>
 
               {testResult && (
                 <div className="result-box" style={{ marginTop: '12px' }}>
                   <div style={{ marginBottom: '4px' }}>
-                    <strong>匹配结果:</strong> {testResult.matched ? (
-                      <span style={{ color: 'var(--success)' }}>✓ 命中 {testResult.match_count} 处</span>
+                    <strong>{t("匹配结果:")}</strong> {testResult.matched ? (
+                      <span style={{ color: 'var(--success)' }}>{t("✓ 命中")}{testResult.match_count}{t("处")}</span>
                     ) : (
-                      <span style={{ color: 'var(--danger)' }}>✗ 未命中</span>
+                      <span style={{ color: 'var(--danger)' }}>{t("✗ 未命中")}</span>
                     )}
                   </div>
                   <div style={{ marginTop: '8px' }}>
-                    <strong>脱敏后:</strong>
+                    <strong>{t("脱敏后:")}</strong>
                     <div style={{
                       marginTop: '4px',
                       padding: '8px',
@@ -344,8 +336,8 @@ export default function RulesPage({ rules, onRefresh }: Props) {
             </div>
 
             <div className="modal-actions">
-              <button className="btn" onClick={() => setShowModal(false)}>取消</button>
-              <button className="btn btn-primary" onClick={handleSave}>保存</button>
+              <button className="btn" onClick={() => setShowModal(false)}>{t("取消")}</button>
+              <button className="btn btn-primary" onClick={handleSave}>{t("保存")}</button>
             </div>
           </div>
         </div>

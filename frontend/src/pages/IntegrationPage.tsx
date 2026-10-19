@@ -1,31 +1,33 @@
+import { useI18n } from '../i18n'
 export default function IntegrationPage() {
+  const { t } = useI18n()
   return (
     <div>
       <div className="card">
-        <div className="card-title">服务信息</div>
+        <div className="card-title">{t("服务信息")}</div>
         <table>
           <tbody>
-            <tr><th>服务 ID</th><td>com.ictrek.desensitize</td></tr>
-            <tr><th>VOS 网关前缀</th><td>/api/com.ictrek.desensitize</td></tr>
-            <tr><th>后端网络别名</th><td>desensitize-backend:5000</td></tr>
-            <tr><th>容器端口</th><td>5000</td></tr>
+            <tr><th>{t("服务 ID")}</th><td>com.ictrek.desensitize</td></tr>
+            <tr><th>{t("VOS 网关前缀")}</th><td>/api/com.ictrek.desensitize</td></tr>
+            <tr><th>{t("后端网络别名")}</th><td>desensitize-backend:5000</td></tr>
+            <tr><th>{t("容器端口")}</th><td>5000</td></tr>
           </tbody>
         </table>
       </div>
 
       <div className="card">
-        <div className="card-title">其他应用接入方式</div>
+        <div className="card-title">{t("其他应用接入方式")}</div>
 
         <div className="integration-section">
-          <h3>方式 1: VOS 网络直连（推荐）</h3>
-          <p>调用方必须也加入外部 <code>vos_default</code> 网络；使用固定 alias，不要依赖容器 IP：</p>
+          <h3>{t("方式 1: VOS 网络直连（推荐）")}</h3>
+          <p>{t("调用方必须也加入外部")}<code>vos_default</code>{t("网络；使用固定 alias，不要依赖容器 IP：")}</p>
           <div className="code-block">{`BASE_URL=http://desensitize-backend:5000
 POST $BASE_URL/api/v1/desensitize/text`}</div>
         </div>
 
         <div className="integration-section">
-          <h3>方式 2: Traefik 网关</h3>
-          <p>适用于已由 VOS 注入网关环境变量的应用。网关会移除应用前缀，再转发到后端：</p>
+          <h3>{t("方式 2: Traefik 网关")}</h3>
+          <p>{t("适用于已由 VOS 注入网关环境变量的应用。网关会移除应用前缀，再转发到后端：")}</p>
           <div className="code-block">{`BASE_URL=http://\${VOS_HOST_GW_IP}:\${VOS_API_GW_PORT_INTERNAL}/api/com.ictrek.desensitize
 POST $BASE_URL/api/v1/desensitize/text`}</div>
         </div>
@@ -33,24 +35,24 @@ POST $BASE_URL/api/v1/desensitize/text`}</div>
       </div>
 
       <div className="card">
-        <div className="card-title">模型依赖</div>
-        <p>NER 与图片 OCR 模型都不随脱敏镜像发布。后端通过 VOS alias <code>v-scheduler-model-hub:6005</code> 查询并请求 V-Scheduler 下载 ModelScope 模型；共享目录继续使用 <code>/data/vos_workspace/model_hub</code>，只读挂载为 <code>/modelhub</code>。NER 与 OCR 推理需要 V-Scheduler 授权，未授权时纯规则脱敏仍可用。</p>
-        <div className="code-block">{`容器内模型路径：
+        <div className="card-title">{t("模型依赖")}</div>
+        <p>{t("NER 与图片 OCR 模型都不随脱敏镜像发布。后端通过 VOS alias")}<code>v-scheduler-model-hub:6005</code>{t("查询并请求 V-Scheduler 下载 ModelScope 模型；共享目录继续使用")}<code>/data/vos_workspace/model_hub</code>{t("，只读挂载为")}<code>/modelhub</code>{t("。NER 与 OCR 推理需要 V-Scheduler 授权，未授权时纯规则脱敏仍可用。")}</p>
+        <div className="code-block">{t(`容器内模型路径：
 /modelhub/export/ms/huluxiaohuowa/bert4ner-base-chinese-onnx/current
 /modelhub/export/ms/huluxiaohuowa/rapidocr-ppocrv4-onnx/current
 
 模型下载中：
 - 文本纯规则 API 完全可用；
 - ner=true 请求会返回 503：“模型下载中，请稍后”；
-- 图片接口会返回 503：“图片 OCR 模型下载中，请稍后”。`}</div>
+- 图片接口会返回 503：“图片 OCR 模型下载中，请稍后”。`)}</div>
       </div>
 
       <div className="card">
-        <div className="card-title">API 接口</div>
+        <div className="card-title">{t("API 接口")}</div>
 
         <div className="integration-section">
-          <h3>POST /api/v1/desensitize/text — 单文本脱敏</h3>
-          <p>将所选方式的 <code>BASE_URL</code> 与此相对路径拼接。适用于任意单文本调用。</p>
+          <h3>{t("POST /api/v1/desensitize/text — 单文本脱敏")}</h3>
+          <p>{t("将所选方式的")}<code>BASE_URL</code>{t("与此相对路径拼接。适用于任意单文本调用。")}</p>
           <div className="code-block">{`POST /api/v1/desensitize/text
 Content-Type: application/json
 
@@ -68,12 +70,12 @@ Content-Type: application/json
   ],
   "latency_ms": 1.8
 }`}</div>
-          <p><code>ner</code> 默认为 <code>false</code>，保持历史纯规则行为；设为 <code>true</code> 后，在规则脱敏之后额外识别人名和地址。</p>
+          <p><code>ner</code>{t("默认为")}<code>false</code>{t("，保持历史纯规则行为；设为")}<code>true</code>{t("后，在规则脱敏之后额外识别人名和地址。")}</p>
         </div>
 
         <div className="integration-section">
-          <h3>POST /api/v1/desensitize — 批量消息脱敏</h3>
-          <p>适用于调用方自己维护的多轮消息，支持跳过特定角色。</p>
+          <h3>{t("POST /api/v1/desensitize — 批量消息脱敏")}</h3>
+          <p>{t("适用于调用方自己维护的多轮消息，支持跳过特定角色。")}</p>
           <div className="code-block">{`POST /api/v1/desensitize
 Content-Type: application/json
 
@@ -104,8 +106,8 @@ Content-Type: application/json
         </div>
 
         <div className="integration-section">
-          <h3>POST /api/v1/desensitize/image — 图片脱敏</h3>
-          <p>图片接口不改变文本接口。该接口只接收 JSON base64 图片，不接收 multipart/form-data 文件上传；误用文件表单会返回 415。后端会先 OCR，再重建连续文本并执行多空间规则匹配：原文本、去空白紧凑文本、以及带校验门控的混淆归一化文本，避免手机号、身份证号、密钥被 OCR 拆成多个文本框或把 0/1 等字符识别成 O/l 后漏检；同时会识别身份证、发票、物流面单等图片中的字段标签，并遮挡同一行或右侧相邻的字段值。</p>
+          <h3>{t("POST /api/v1/desensitize/image — 图片脱敏")}</h3>
+          <p>{t("图片接口不改变文本接口。该接口只接收 JSON base64 图片，不接收 multipart/form-data 文件上传；误用文件表单会返回 415。后端会先 OCR，再重建连续文本并执行多空间规则匹配：原文本、去空白紧凑文本、以及带校验门控的混淆归一化文本，避免手机号、身份证号、密钥被 OCR 拆成多个文本框或把 0/1 等字符识别成 O/l 后漏检；同时会识别身份证、发票、物流面单等图片中的字段标签，并遮挡同一行或右侧相邻的字段值。")}</p>
           <div className="code-block">{`POST /api/v1/desensitize/image
 Content-Type: application/json
 
@@ -134,12 +136,12 @@ Content-Type: application/json
     {"box": {"x1": 10, "y1": 20, "x2": 180, "y2": 48}, "quad": [[10,20],[180,20],[180,48],[10,48]]}
   ]
 }`}</div>
-          <p><code>adaptive=true</code> 会按 OCR 关键词识别身份证、发票、物流面单、配置截图等场景，并选择对应规则与兜底策略；信号不足时回退到全量规则。<code>reversible=true</code> 会返回加密 <code>ledger</code>，用于审计场景下还原被遮挡区域。tc192/L4T 等弱性能环境建议保持默认：<code>max_side=1600</code>、OCR 并发 <code>1</code>。需要人名/地址语义遮挡时再传 <code>ner=true</code>。</p>
+          <p><code>adaptive=true</code>{t("会按 OCR 关键词识别身份证、发票、物流面单、配置截图等场景，并选择对应规则与兜底策略；信号不足时回退到全量规则。")}<code>reversible=true</code>{t("会返回加密")}<code>ledger</code>{t("，用于审计场景下还原被遮挡区域。tc192/L4T 等弱性能环境建议保持默认：")}<code>max_side=1600</code>{t("、OCR 并发")}<code>1</code>{t("。需要人名/地址语义遮挡时再传")}<code>ner=true</code>。</p>
         </div>
 
         <div className="integration-section">
-          <h3>POST /api/v1/desensitize/image/restore — 可逆图片还原</h3>
-          <p>仅当图片脱敏请求设置 <code>reversible=true</code> 且保存了响应中的 <code>ledger</code> 时可用。服务不会保存 ledger 或密钥，调用方必须自行保存并保护密钥。</p>
+          <h3>{t("POST /api/v1/desensitize/image/restore — 可逆图片还原")}</h3>
+          <p>{t("仅当图片脱敏请求设置")}<code>reversible=true</code>{t("且保存了响应中的")}<code>ledger</code>{t("时可用。服务不会保存 ledger 或密钥，调用方必须自行保存并保护密钥。")}</p>
           <div className="code-block">{`POST /api/v1/desensitize/image/restore
 Content-Type: application/json
 
@@ -157,11 +159,11 @@ Content-Type: application/json
   "report": [{"index": 0, "restored": true}],
   "restored_count": 1
 }`}</div>
-          <p>还原接口默认输出 <code>image/png</code>，避免 JPEG 重新压缩破坏贴回像素。单个区域解密失败只记录在 <code>report</code> 中，不中断其余区域还原。</p>
+          <p>{t("还原接口默认输出")}<code>image/png</code>{t("，避免 JPEG 重新压缩破坏贴回像素。单个区域解密失败只记录在")}<code>report</code>{t("中，不中断其余区域还原。")}</p>
         </div>
 
         <div className="integration-section">
-          <h3>GET /api/v1/rules — 列出所有规则</h3>
+          <h3>{t("GET /api/v1/rules — 列出所有规则")}</h3>
           <div className="code-block">{`GET /api/v1/rules?enabled_only=true
 
 # Response
@@ -172,7 +174,7 @@ Content-Type: application/json
         </div>
 
         <div className="integration-section">
-          <h3>POST /api/v1/rules — 创建自定义规则</h3>
+          <h3>{t("POST /api/v1/rules — 创建自定义规则")}</h3>
           <div className="code-block">{`POST /api/v1/rules
 Content-Type: application/json
 
@@ -188,7 +190,7 @@ Content-Type: application/json
         </div>
 
         <div className="integration-section">
-          <h3>POST /api/v1/rules/test — 测试正则</h3>
+          <h3>{t("POST /api/v1/rules/test — 测试正则")}</h3>
           <div className="code-block">{`curl -X POST -G "$BASE_URL/api/v1/rules/test" \\
   --data-urlencode 'pattern=(?<!\\d)(1[3-9]\\d{9})(?!\\d)' \\
   --data-urlencode 'text=我的手机号是13812345678' \\
@@ -205,9 +207,9 @@ Content-Type: application/json
       </div>
 
       <div className="card">
-        <div className="card-title">接入方实现要求</div>
+        <div className="card-title">{t("接入方实现要求")}</div>
         <div className="integration-section">
-          <p>WeKnora、agent-room 等应用目前需要自行接入；仅设置环境变量或 config.yaml 不会自动启用脱敏。</p>
+          <p>{t("WeKnora、agent-room 等应用目前需要自行接入；仅设置环境变量或 config.yaml 不会自动启用脱敏。")}</p>
           <div className="code-block">{`const response = await fetch(
   \`\${baseUrl}/api/v1/desensitize/text\`,
   {
@@ -223,28 +225,28 @@ const { text: sanitizedText } = await response.json();
       </div>
 
       <div className="card">
-        <div className="card-title">接入校验</div>
+        <div className="card-title">{t("接入校验")}</div>
         <div className="integration-section">
-          <p>接入完成后，先调用规则列表和健康检查，再用包含手机号、身份证、密钥的测试文本确认命中数。</p>
-          <div className="code-block">{`GET  $BASE_URL/health
+          <p>{t("接入完成后，先调用规则列表和健康检查，再用包含手机号、身份证、密钥的测试文本确认命中数。")}</p>
+          <div className="code-block">{t(`GET  $BASE_URL/health
 GET  $BASE_URL/api/v1/rules?enabled_only=true
 POST $BASE_URL/api/v1/desensitize/text
 
-预期：内置规则数为 13；测试文本中的手机号、身份证、sk-live 密钥均被替换。`}</div>
+预期：内置规则数为 13；测试文本中的手机号、身份证、sk-live 密钥均被替换。`)}</div>
         </div>
       </div>
 
       <div className="card">
-        <div className="card-title">降级策略</div>
-        <p style={{ fontSize: '13px' }}>调用云模型时建议默认阻断并告警；只有经明确风险评估的本地或可信处理链路，才可使用原始文本降级。</p>
-        <div className="code-block">{`try {
+        <div className="card-title">{t("降级策略")}</div>
+        <p style={{ fontSize: '13px' }}>{t("调用云模型时建议默认阻断并告警；只有经明确风险评估的本地或可信处理链路，才可使用原始文本降级。")}</p>
+        <div className="code-block">{t(`try {
   const resp = await fetch(desensitizeUrl, ...);
   // 使用脱敏后的文本
 } catch (e) {
   // 默认阻断云端调用，避免敏感原文外发
   logger.error('desensitize service unavailable; cloud request blocked', e);
   throw new Error('desensitize service unavailable');
-}`}</div>
+}`)}</div>
       </div>
     </div>
   )

@@ -2,24 +2,30 @@
 
 Desensitize Service provides regex-based sensitive information detection and desensitization HTTP API. Other VOS apps like WeKnora and agent-room can use it to sanitize data before sending to cloud models.
 
-> ⚠️ **Prerequisite: Model Hub**
+> ⚠️ **Prerequisite: V-Scheduler**
 >
-> NER (semantic desensitization) and image OCR require Model Hub. Make sure Model Hub is installed and running before installing this app.
+> V-Scheduler manages model downloads, application model authorization and resource scheduling. NER (people/address detection) and image OCR load, run and unload their models within approved execution permits. Install and start V-Scheduler, then bind this app's NER/OCR executors and authorize their models. Downloaded files or a visible model directory do not grant inference permission.
 >
-> The NER model `huluxiaohuowa/bert4ner-base-chinese-onnx` and OCR model `huluxiaohuowa/rapidocr-ppocrv4-onnx` are not bundled with this app. The service can automatically trigger Model Hub downloads, and the Web "Models" page can manually download, check versions, and update them. During download, regex-only APIs remain available; `ner=true` requests and image requests return retry messages.
+> `huluxiaohuowa/bert4ner-base-chinese-onnx` and `huluxiaohuowa/rapidocr-ppocrv4-onnx` are not bundled. Use this app's Models page to download, check and update them. Requests requiring unavailable models, authorization or resources return 503; regex-only text redaction remains available.
 
 ## Installation Profiles
 
 | Profile | Target |
 | --- | --- |
-| `amd` | AMD64 hosts |
-| `arm` | ARM64 hosts |
+| `amd` | AMD64 + NVIDIA CUDA |
+| `amd-without-cuda` | AMD64 CPU |
+| `arm` | ARM64 + NVIDIA CUDA |
+| `arm-without-cuda` | ARM64 CPU |
+| `l4t` | Jetson / L4T |
+| `thor-spark` | Thor / Spark |
 
 ## Access
 
 Navigate via VOS sidebar: **Desensitize** (top-level entry; opens directly)
 
 Iframe URL: `/app/com.ictrek.desensitize/`
+
+The interface follows the current VOS language and updates immediately between Chinese and English. When opened independently, it uses the browser language. Language changes preserve current input and unsaved rules.
 
 ## Network Access
 
@@ -31,7 +37,7 @@ Iframe URL: `/app/com.ictrek.desensitize/`
 Both values are API base URLs. Append `/api/v1/desensitize/text` for single-text
 desensitization. Traefik removes `/api/com.ictrek.desensitize` before forwarding.
 
-Private application data is stored in `${VOS_APP_STORAGE_PATH}/data`, assigned by VOS. The install form only asks for the shared Model Hub directory.
+Private application data is stored in `${VOS_APP_STORAGE_PATH}/data`, assigned by VOS. The install form only asks for the shared V-Scheduler directory.
 
 ## Rule Management
 
@@ -43,10 +49,12 @@ be enabled or disabled individually. Custom rules can be created, edited,
 deleted, enabled, and disabled. Rule enabled states are persisted and remain the
 same after restart or the next login.
 
-## Model Dependencies through Model Hub
+## Model Management and Inference Authorization through V-Scheduler
+
+Downloads and version management use V-Scheduler’s model management service. NER/OCR inference also requires application binding, model authorization and approved resources. The app does not bypass scheduling when a permit is unavailable. The legacy `MODEL_HUB_SHARED_MODELS_PATH` key and `/data/vos_workspace/model_hub` directory remain compatible; existing models do not need to be moved.
 
 NER and image OCR weights are not embedded in this image. On startup the service
-checks Model Hub through the VOS alias `model-hub-backend:5005` and requests the
+checks V-Scheduler through the VOS alias `v-scheduler-model-hub:6005` and requests the
 ModelScope models `huluxiaohuowa/bert4ner-base-chinese-onnx` and
 `huluxiaohuowa/rapidocr-ppocrv4-onnx` when they are absent. Set
 `MODEL_HUB_SHARED_MODELS_PATH` at installation time (default:
@@ -65,7 +73,7 @@ to batch `options`, to additionally redact person and location entities.
 4. Requests beyond that limit wait up to `DESENSITIZE_NER_QUEUE_TIMEOUT_SECONDS`
 (default 30 seconds) before receiving a busy response.
 
-The Web "Models" page shows separate NER and OCR cards with Model Hub status,
+The Web "Models" page shows separate NER and OCR cards with V-Scheduler status,
 download progress, current version, access path, and download/check/update
 buttons.
 
@@ -75,7 +83,7 @@ frontend/backend images, NER state, and active ONNX Runtime provider.
 ## Image Desensitization
 
 Image desensitization is an additional API and does not change the existing text
-APIs. The service loads RapidOCR ONNX files from Model Hub, reconstructs
+APIs. The service loads RapidOCR ONNX files from V-Scheduler, reconstructs
 line/document text from OCR blocks, then applies regex matching on both the
 rebuilt text and a compact whitespace-free view. This avoids common misses when
 OCR splits one phone number, ID number, or API key into multiple boxes. Set

@@ -327,3 +327,6 @@ VOS 安装依赖统一应用 `com.ictrek.v-scheduler`，打包时从已发布的
 VOS 包中的 NER 和 OCR 需要 V-Scheduler 批准的 `ner`、`ocr` 执行器。绑定接收端为 `POST /api/v1/scheduler/binding`，只接受 VOS 核验后的 V-Scheduler 应用身份，私有配置保存在 `/data/scheduler.local.json`（0600）。ONNX 模型改为许可内懒加载，调用结束卸载后释放；未获模型授权时返回 503。纯规则脱敏不申请模型资源，继续可用。`GET /api/v1/discovery` 返回可用模型与不含凭据的绑定状态。
 
 绑定必须匹配实际 `execution_settings`。NER 的 `model_limits` 包含 `text_characters`、`max_tokens`；OCR 包含 `input_bytes`、`input_width`、`input_height`、`input_pixels`、`input_pages`。图片在 Base64 解码前限制大小、读取文件头后限制像素及页数，实际 OCR 裁片也再次核对；超出校准范围返回 422。
+
+切换 `DESENSITIZE_GPU_PROVIDER` 等运行参数后，旧校准不会继续授权推理。由 VOS 验证的 V-Scheduler 身份可在空闲时下发匹配当前参数的更高 revision 绑定；旧 revision、活动执行期间的替换以及不匹配的运行参数仍会被拒绝，无需删除原绑定文件。
+卸载 ONNX 会话后会尽力归还 glibc 保留的空闲 CPU 堆内存，减少连续 NER/OCR 调用的宿主内存占用；这不替代原生卸载或 GPU 停止证明，资源准入与系统安全余量仍保持有效。

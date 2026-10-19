@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import contextvars
+import ctypes
 import json
 import math
 from importlib import metadata
@@ -24,6 +25,18 @@ headers_context = contextvars.ContextVar("scheduler_headers", default={})
 lock = threading.RLock()
 execution_lock = threading.Lock()
 active = 0
+
+
+def release_unused_host_memory():
+    # ONNX sessions are gone, but glibc may retain their freed CPU heap pages.
+    # This is best effort; it is not evidence that GPU execution has stopped.
+    try:
+        trim = ctypes.CDLL(None).malloc_trim
+        trim.argtypes = [ctypes.c_size_t]
+        trim.restype = ctypes.c_int
+        trim(0)
+    except (AttributeError, OSError):
+        pass
 
 
 def execution_settings():
@@ -63,7 +76,7 @@ def config_path():
     return Path(os.getenv(PREFIX + "_SCHEDULER_CONFIG", "/data/scheduler.local.json"))
 
 
-def read_config():
+def read_config(*, current_settings=True):
     path = config_path()
     try:
         info = path.lstat()
@@ -74,7 +87,7 @@ def read_config():
             raise ValueError("invalid service binding")
         if len(value.get("token", "")) < 32:
             raise ValueError("missing service identity")
-        if value.get("execution_settings") != execution_settings():
+        if current_settings and value.get("execution_settings") != execution_settings():
             raise ValueError("runtime settings no longer match approval")
         return value
     except (OSError, ValueError, TypeError, AttributeError):
@@ -169,7 +182,9 @@ async def bind(request: Request):
             raise HTTPException(409, "Binding waits for active execution")
         path = config_path()
         if path.exists():
-            previous = read_config()
+            # An authenticated newer approval may replace an obsolete runtime binding.
+            # Compute paths still require the saved settings to match the runtime.
+            previous = read_config(current_settings=False)
             if previous.get("binding_revision", 0) >= config["binding_revision"]:
                 if previous == config:
                     return {"configured": True, "binding_revision": config["binding_revision"]}
@@ -254,6 +269,7 @@ def _compute(model, unload, inputs=None):
         stopped = False
         try:
             unload()
+            release_unused_host_memory()
             stopped = True
         finally:
             if owned and permit:

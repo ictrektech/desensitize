@@ -104,5 +104,46 @@ class BindingTests(unittest.TestCase):
                 self.assertEqual(api.post('/api/v1/scheduler/binding', json={**config, 'binding_revision': 1}).status_code, 409)
 
 
+class BindingRuntimeMigrationTests(unittest.TestCase):
+    def test_trusted_new_revision_replaces_stale_runtime_but_stale_revision_cannot(self):
+        old_settings = {'ner_provider_requested': 'cuda'}
+        new_settings = {'ner_provider_requested': 'cpu'}
+        old = {'protocol_version': 1, 'binding_revision': 7, 'app_id': scheduler.APP_ID,
+               'url': scheduler.URL, 'upstream_url': scheduler.UPSTREAM,
+               'token': 'a' * 32, 'executor_token': 'b' * 32,
+               'models': {'ner': 'app.gpu'}, 'execution_settings': old_settings,
+               'model_limits': {'ner': {'text_characters': 4096}}}
+        new = {**old, 'binding_revision': 8, 'models': {'ner': 'app.cpu'},
+               'execution_settings': new_settings}
+        executor = {'id': 'app.cpu', 'app_id': scheduler.APP_ID, 'contract_version': '1',
+                    'task_type': 'model.infer', 'upstream_urls': [scheduler.UPSTREAM]}
+        identity = AsyncMock()
+        identity.__aenter__.return_value = identity
+        identity.get.return_value = httpx.Response(200,
+            json={'sub': 'com.ictrek.v-scheduler', 'enable': 1},
+            request=httpx.Request('GET', 'http://identity/userinfo'))
+        app = FastAPI(); app.include_router(scheduler.router)
+        with tempfile.TemporaryDirectory() as directory:
+            filename = Path(directory) / 'binding.json'
+            filename.write_text(json.dumps(old)); filename.chmod(0o600)
+            with patch.object(scheduler, 'config_path', return_value=filename), \
+                 patch.object(scheduler, 'execution_settings', return_value=new_settings), \
+                 patch.object(scheduler, 'controller', return_value=[executor]), \
+                 patch.object(scheduler.httpx, 'AsyncClient', return_value=identity), \
+                 patch.dict(os.environ, {'VOS_USERINFO_URL': 'http://identity/userinfo'}):
+                with self.assertRaises(HTTPException):
+                    scheduler.read_config()  # Stale runtime never authorizes compute.
+                with TestClient(app) as api:
+                    response = api.post('/api/v1/scheduler/binding', json=new)
+                    self.assertEqual(response.status_code, 200, response.text)
+                    self.assertEqual(scheduler.read_config(), new)
+                    stale = {**new, 'binding_revision': 7}
+                    self.assertEqual(api.post('/api/v1/scheduler/binding', json=stale).status_code, 409)
+                    self.assertEqual(json.loads(filename.read_text()), new)
+                    with patch.object(scheduler, 'active', 1):
+                        self.assertEqual(api.post('/api/v1/scheduler/binding', json={**new, 'binding_revision': 9}).status_code, 409)
+                    self.assertEqual(json.loads(filename.read_text()), new)
+
+
 if __name__ == '__main__':
     unittest.main()

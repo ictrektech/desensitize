@@ -17,7 +17,7 @@ Desensitize Service provides regex-based sensitive information detection and des
 
 ## Access
 
-Navigate via VOS sidebar: **Desensitize -> Desensitize Management**
+Navigate via VOS sidebar: **Desensitize** (top-level entry; opens directly)
 
 Iframe URL: `/app/com.ictrek.desensitize/`
 

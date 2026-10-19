@@ -11,10 +11,9 @@ set -euo pipefail
 
 APP_NAME="desensitize"
 APP_ID="com.ictrek.desensitize"
-ROUTER_GROUP_ID="com-ictrek-desensitize"
 ROUTER_PAGE_ID="desensitize"
 ROUTER_IFRAME_SRC="/app/com.ictrek.desensitize/"
-ROUTER_HASH_PATH="#/app/com.ictrek.desensitize/com-ictrek-desensitize/desensitize"
+ROUTER_HASH_PATH="#/app/com.ictrek.desensitize/desensitize"
 FRONTEND_BASE_PATH="/app/com.ictrek.desensitize"
 SPREADSHEET_TOKEN="${FEISHU_SPREADSHEET_TOKEN:-Htotsn3oahO1zxt73YMcaB1zn8e}"
 FEISHU_CONFIG_FILE="${FEISHU_CONFIG_FILE:-${HOME}/.feishu.components.json}"
@@ -381,9 +380,11 @@ verify_package() {
   printf '%s\n' "$compose_text" | grep -Fq '        - desensitize-frontend' || die 'frontend must retain the desensitize-frontend alias'
 
   routers_text="$(tar xOf "$app_tarball" routers.yml)"
-  printf '%s\n' "$routers_text" | grep -Fq "  - id: ${ROUTER_GROUP_ID}" || die "routers.yml group id must be ${ROUTER_GROUP_ID}"
-  printf '%s\n' "$routers_text" | grep -Fq "      - id: ${ROUTER_PAGE_ID}" || die "routers.yml page id must be ${ROUTER_PAGE_ID}"
-  printf '%s\n' "$routers_text" | grep -Fq "        iframe-src: ${ROUTER_IFRAME_SRC}" || die "routers.yml iframe-src must be ${ROUTER_IFRAME_SRC}"
+  if printf '%s\n' "$routers_text" | grep -Eq '^[[:space:]]*(kind:[[:space:]]*group|children:)'; then
+    die 'routers.yml must contain a single top-level page without groups'
+  fi
+  printf '%s\n' "$routers_text" | grep -Fq "  - id: ${ROUTER_PAGE_ID}" || die "routers.yml page id must be ${ROUTER_PAGE_ID}"
+  printf '%s\n' "$routers_text" | grep -Fq "    iframe-src: ${ROUTER_IFRAME_SRC}" || die "routers.yml iframe-src must be ${ROUTER_IFRAME_SRC}"
   if printf '%s\n' "$routers_text" | grep -Eq 'iframe-src:[[:space:]]*https?://'; then
     die 'routers.yml iframe-src must use a same-origin VOS path'
   fi

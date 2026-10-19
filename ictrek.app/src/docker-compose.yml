@@ -17,7 +17,7 @@ x-desensitize-frontend-base: &desensitize-frontend-base
     - "traefik.http.routers.desensitize-top-open.service=desensitize-web"
     - "traefik.http.routers.desensitize-top-open.middlewares=desensitize-top-open-redirect"
     - "traefik.http.middlewares.desensitize-top-open-redirect.redirectregex.regex=^(https?://[^/]+)/app/com\\.ictrek\\.desensitize/?(?:\\?.*)?$"
-    - "traefik.http.middlewares.desensitize-top-open-redirect.redirectregex.replacement=$${1}/#/app/com.ictrek.desensitize/com-ictrek-desensitize/desensitize"
+    - "traefik.http.middlewares.desensitize-top-open-redirect.redirectregex.replacement=$${1}/#/app/com.ictrek.desensitize/desensitize"
     - "traefik.http.middlewares.desensitize-top-open-redirect.redirectregex.permanent=false"
     - "traefik.http.routers.desensitize-web.rule=PathPrefix(`/app/com.ictrek.desensitize`)"
     - "traefik.http.routers.desensitize-web.service=desensitize-web"

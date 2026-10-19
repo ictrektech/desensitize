@@ -2,6 +2,8 @@
 
 基于正则规则的敏感信息识别与脱敏 HTTP API 服务。
 
+VOS 侧边栏以单个顶层“数据脱敏”入口直接打开管理页面，无需展开多层菜单。
+
 VOS 模型调度使用有界线程：NER ORT 保持配置的 4/1 线程，OCR 三个 ORT 会话与
 OpenCV 固定 1 线程；Compose 在导入数学库前设置 OMP/MKL/OpenBLAS 各 1 线程。
 这些真实设置一并进入 `execution_settings`，不能将旧无限线程测量套用到新批准。

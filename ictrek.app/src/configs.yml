@@ -1,4 +1,12 @@
 configs:
+  - name: DESENSITIZE_GPU_PROVIDER
+    type: string
+    title: {zh-CN: GPU 平台推理设备, en: Inference Device on GPU Profiles}
+    description:
+      zh-CN: cuda 或 cpu；默认使用 CUDA。低内存设备可选择 cpu，为 NER 和 OCR 避免 CUDA 上下文占用；安装 profile 和共享模型目录保持不变。
+      en: cuda or cpu; defaults to CUDA. Low-memory devices can select CPU for NER and OCR while retaining the installation profile and shared model directory.
+    default: cuda
+
   - name: MODEL_HUB_SHARED_MODELS_PATH
     type: path
     title:

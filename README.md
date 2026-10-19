@@ -155,6 +155,8 @@ ictrek.app/scripts/update_version.sh patch
 代码，运行 `update_version.sh patch`。CI 只负责从每个 profile 自己的 sheet 读取 tag、
 生成 pull 模式 VOS 包和发布应用商店，不重新构建镜像。
 
+前端构建机无法访问 npm 官方源时，可设置 `NPM_REGISTRY=https://registry.npmmirror.com` 后运行原有 `docker/build_image.sh --frontend-platform amd|arm`；未设置时仍使用 npm 官方源。
+
 ## 模型依赖（V-Scheduler）
 
 NER 是显式开关，历史 API 不传 `ner` 时仍是纯正则。启动后服务通过 VOS alias

@@ -2,7 +2,8 @@
 FROM node:20-alpine AS build
 WORKDIR /app
 COPY frontend/package.json ./
-RUN npm install
+ARG NPM_REGISTRY=https://registry.npmjs.org
+RUN npm install --registry="$NPM_REGISTRY"
 COPY frontend/ ./
 RUN npm run build
 

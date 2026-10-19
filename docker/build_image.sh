@@ -133,6 +133,7 @@ Options:
 Environment:
   FEISHU_CONFIG_FILE       Defaults to ~/.feishu.json
   REGISTRY                 SWR registry prefix
+  NPM_REGISTRY             Optional npm registry for frontend dependency downloads
 EOF
 }
 
@@ -400,7 +401,11 @@ build_and_push() {
     return 0
   fi
 
-  docker_build_image \
+  local build_args=()
+  if [[ "$component" == "frontend" && -n "${NPM_REGISTRY:-}" ]]; then
+    build_args+=(--build-arg "NPM_REGISTRY=${NPM_REGISTRY}")
+  fi
+  docker_build_image "${build_args[@]}" \
     -f "$dockerfile" \
     -t "$image_name" \
     .

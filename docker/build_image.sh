@@ -402,6 +402,11 @@ build_and_push() {
   fi
 
   local build_args=()
+  if [[ "$component" == backend && -n "${DESENSITIZE_APPLICATION_BASE_IMAGE:-}" ]]; then
+    docker image inspect "$DESENSITIZE_APPLICATION_BASE_IMAGE" >/dev/null
+    dockerfile="docker/Dockerfile.application"
+    build_args+=(--build-arg "APPLICATION_BASE_IMAGE=$DESENSITIZE_APPLICATION_BASE_IMAGE")
+  fi
   if [[ "$component" == "frontend" && -n "${NPM_REGISTRY:-}" ]]; then
     build_args+=(--build-arg "NPM_REGISTRY=${NPM_REGISTRY}")
   fi

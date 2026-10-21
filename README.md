@@ -330,3 +330,11 @@ VOS 包中的 NER 和 OCR 需要 V-Scheduler 批准的 `ner`、`ocr` 执行器�
 
 切换 `DESENSITIZE_GPU_PROVIDER` 等运行参数后，旧校准不会继续授权推理。由 VOS 验证的 V-Scheduler 身份可在空闲时下发匹配当前参数的更高 revision 绑定；旧 revision、活动执行期间的替换以及不匹配的运行参数仍会被拒绝，无需删除原绑定文件。
 卸载 ONNX 会话后会尽力归还 glibc 保留的空闲 CPU 堆内存，减少连续 NER/OCR 调用的宿主内存占用；这不替代原生卸载或 GPU 停止证明，资源准入与系统安全余量仍保持有效。
+
+## 应用生命周期与资源停止
+
+VOS 安装后，应用通过 Scheduler 的可信绑定获得 `lifecycle_protocol_version=1`，自动登记已批准的执行器并定时上报应用心跳；节点遥测仍由 V-Scheduler 的内置组件采集，不需要用户安装 Agent。正式入口为 `http://v-scheduler:38120/api/v1`，兼容别名继续可用。模型目录、原有安装参数和模型下载方式不变。
+
+在 V-Scheduler「节点管理 → 应用统一接入」可查看实际节点、批准预算和运行中的执行。同步计算使用「停止并卸载」，异步任务使用「取消」；停止请求本身不释放预算。应用确认原生调用/子进程退出并卸载权重后才提交原执行的停止证明。未知执行或确认失败继续保留预约，避免把仍在运行的计算当成空闲；确认回执保存在应用私有目录，可在重启后重试。阻塞式原生调用须等待其实际返回，不能承诺立即中断。
+
+完整流程、身份和接口见 [V-Scheduler 统一接入指南](https://github.com/ictrektech/V-Scheduler/blob/main/docs/application-integration.md#unified-lifecycle)。

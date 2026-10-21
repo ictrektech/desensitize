@@ -110,6 +110,7 @@ async def discovery():
     return {"service_id": "desensitize", "scheduler": {
         "protocol_version": 1, "app_id": "com.ictrek.desensitize",
         "binding_endpoint": "/api/v1/scheduler/binding",
+        "lifecycle_protocol_version": 1,
         "executor_base_url": "http://desensitize-backend:5000",
         "upstream_url": "http://desensitize-backend:5000/v1",
         "provider": ner_engine.provider, "ocr_provider": image_ocr_engine.provider,
@@ -133,3 +134,18 @@ async def system_about():
         "ner": ner_engine.info(),
         "image_ocr": image_ocr_engine.info(),
     }
+
+
+@app.on_event("startup")
+async def start_application_lifecycle():
+    from app.services.scheduler import lifecycle, required
+    if required():
+        lifecycle().start()
+
+
+@app.on_event("shutdown")
+async def stop_application_lifecycle():
+    from app.services import scheduler
+    import asyncio
+    if scheduler._lifecycle is not None:
+        await asyncio.to_thread(scheduler._lifecycle.close)

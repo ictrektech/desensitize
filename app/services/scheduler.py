@@ -199,6 +199,24 @@ async def bind(request: Request):
     return {"configured": True, "binding_revision": config["binding_revision"]}
 
 
+_lifecycle = None
+
+def lifecycle():
+    global _lifecycle
+    if _lifecycle is None:
+        from .scheduler_lifecycle import Lifecycle
+        _lifecycle = Lifecycle(read_config, config_path().with_name("scheduler.lifecycle.json"))
+    return _lifecycle
+
+
+def lifecycle_call(method, *args):
+    from .scheduler_lifecycle import LifecycleError
+    try:
+        return getattr(lifecycle(), method)(*args)
+    except (LifecycleError, OSError):
+        raise HTTPException(503, "Application lifecycle unavailable") from None
+
+
 @contextmanager
 def compute(model, unload, inputs=None):
     if not required():
@@ -218,6 +236,8 @@ def _compute(model, unload, inputs=None):
     with lock:
         config = read_config()
         validate_limits(model, inputs or {}, config)
+        if config.get('lifecycle_protocol_version') == 1:
+            lifecycle_call("ensure", config)
         active += 1
     permit = ""
     owned = False
@@ -248,7 +268,11 @@ def _compute(model, unload, inputs=None):
             if value.get("state") != "active" or value.get("lease_seconds", 0) < 1:
                 raise HTTPException(503, "Compute lease expired")
 
+        if config.get('lifecycle_protocol_version') == 1:
+            lifecycle_call("attach", config, permit, execution, proof, failed.set)
         verify(True)
+        if config.get('lifecycle_protocol_version') == 1:
+            lifecycle_call("claimed", permit, execution)
 
         def watch():
             while not stop.wait(5):
@@ -271,10 +295,14 @@ def _compute(model, unload, inputs=None):
             unload()
             release_unused_host_memory()
             stopped = True
+            if permit and config.get('lifecycle_protocol_version') == 1:
+                lifecycle_call("finished", permit, True)
         finally:
             if owned and permit:
                 try:
                     controller(config, "POST", "/permits/" + permit + "/release", {"stopped": stopped, "evidence": "application_call_completed_and_model_unloaded" if stopped else "model_unload_not_confirmed"})
+                    if stopped and config.get('lifecycle_protocol_version') == 1:
+                        lifecycle_call("released", permit)
                 except HTTPException:
                     pass
             with lock:

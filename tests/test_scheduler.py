@@ -36,6 +36,20 @@ class AdmissionTests(unittest.TestCase):
             item.stop()
         scheduler.headers_context.reset(self.token)
 
+    def test_priority_intent_is_forwarded_without_budget_override(self):
+        scheduler.headers_context.set({'x-vscheduler-priority': 'high', 'x-vscheduler-preemptible': 'true', 'x-vscheduler-allow-preemption': 'true'})
+        with scheduler.compute('model', Mock()):
+            self.assertEqual(self.calls[0][2]['scheduling'], {'priority': 'high', 'preemptible': True, 'allow_preemption': True})
+            self.assertNotIn('resources', self.calls[0][2])
+
+    def test_invalid_priority_fails_before_native_work(self):
+        scheduler.headers_context.set({'x-vscheduler-priority': 'urgent'})
+        with self.assertRaises(HTTPException) as error:
+            with scheduler.compute('model', Mock()):
+                self.fail('native work started')
+        self.assertEqual(error.exception.status_code, 422)
+        self.assertEqual(self.calls, [])
+
     def test_direct_call_claims_then_unloads_before_release(self):
         unload = Mock(side_effect=lambda: self.calls.append(('unload', '', None)))
         with scheduler.compute('model', unload):

@@ -96,6 +96,8 @@ def read_config(*, current_settings=True):
 
 def controller(config, method, path, body=None, key=""):
     headers = {"Authorization": "Bearer " + config["token"]}
+    from .scheduling_options import operator_headers
+    headers.update(operator_headers((body or {}).get("scheduling", {}), headers_context.get().get("authorization", "")))
     if key:
         headers["Idempotency-Key"] = key
     try:
@@ -257,7 +259,9 @@ def _compute(model, unload, inputs=None):
         else:
             if not executor:
                 raise HTTPException(503, "Model executor is not approved")
-            value = controller(config, "POST", "/permits", {"executor_id": executor, "model_id": model, "upstream_url": UPSTREAM, "execution_token": proof}, execution)
+            from .scheduling_options import options_from_headers
+            options = options_from_headers(incoming)
+            value = controller(config, "POST", "/permits", {"executor_id": executor, "model_id": model, "upstream_url": UPSTREAM, "execution_token": proof, **({"scheduling": options} if options else {})}, execution)
             permit = value.get("permit_id", "")
             owned = True
         if not permit:

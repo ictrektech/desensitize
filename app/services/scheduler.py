@@ -100,8 +100,15 @@ def controller(config, method, path, body=None, key=""):
     headers.update(operator_headers((body or {}).get("scheduling", {}), headers_context.get().get("authorization", "")))
     if key:
         headers["Idempotency-Key"] = key
+    timeout = 8
+    if path == "/permits":
+        from .scheduling_options import queue_wait_seconds
+        wait = queue_wait_seconds(headers_context.get())
+        path, body, timeout = "/permits/wait", {"request": body, "wait_seconds": wait}, wait + 8
     try:
-        response = httpx.request(method, URL + path, headers=headers, json=body, timeout=8, follow_redirects=False)
+        response = httpx.request(method, URL + path, headers=headers, json=body, timeout=timeout, follow_redirects=False)
+        if response.status_code == 403:
+            raise HTTPException(403, "Scheduler authorization rejected")
         if response.status_code == 429:
             raise HTTPException(429, "Compute resources busy", headers={"Retry-After": "1"})
         response.raise_for_status()
@@ -235,9 +242,8 @@ def compute(model, unload, inputs=None):
     if not required():
         yield
         return
-    with execution_lock:
-        with _compute(model, unload, inputs):
-            yield
+    with _compute(model, unload, inputs):
+        yield
 
 
 @contextmanager
@@ -254,6 +260,7 @@ def _compute(model, unload, inputs=None):
         active += 1
     permit = ""
     owned = False
+    lane_owned = False
     stop = threading.Event()
     failed = threading.Event()
     execution = secrets.token_hex(16)
@@ -277,6 +284,9 @@ def _compute(model, unload, inputs=None):
             owned = True
         if not permit:
             raise HTTPException(503, "Missing admission receipt")
+
+        execution_lock.acquire()
+        lane_owned = True
 
         def verify(claim=False):
             value = controller(config, "POST", "/permits/" + permit + "/verify", {"executor_id": executor, "model_id": model, "upstream_url": UPSTREAM, "execution_token": proof, "execution_id": execution, "claim": claim})
@@ -307,18 +317,23 @@ def _compute(model, unload, inputs=None):
         stop.set()
         stopped = False
         try:
-            unload()
-            release_unused_host_memory()
+            # A queued/rejected request must not unload another active request.
+            if lane_owned:
+                unload()
+            if lane_owned:
+                release_unused_host_memory()
             stopped = True
             if permit and config.get('lifecycle_protocol_version') == 1:
                 lifecycle_call("finished", permit, True)
         finally:
             if owned and permit:
                 try:
-                    controller(config, "POST", "/permits/" + permit + "/release", {"stopped": stopped, "evidence": "application_call_completed_and_model_unloaded" if stopped else "model_unload_not_confirmed"})
+                    controller(config, "POST", "/permits/" + permit + "/release", {"stopped": stopped, "evidence": ("application_call_completed_and_model_unloaded" if lane_owned else "inference_request_not_started") if stopped else "model_unload_not_confirmed"})
                     if stopped and config.get('lifecycle_protocol_version') == 1:
                         lifecycle_call("released", permit)
                 except HTTPException:
                     pass
             with lock:
                 active -= 1
+            if lane_owned:
+                execution_lock.release()

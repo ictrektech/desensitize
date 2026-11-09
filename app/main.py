@@ -14,6 +14,8 @@ import logging
 import os
 
 from fastapi import FastAPI
+from fastapi.openapi.docs import get_swagger_ui_html
+from app.api_documentation import build_openapi
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -36,6 +38,7 @@ logger = logging.getLogger("ictrek-desensitize")
 logging.getLogger("httpx").setLevel(logging.WARNING)
 
 app = FastAPI(
+    docs_url=None,
     title="ictrek-desensitize",
     description="数据脱敏服务 - 提供基于正则规则的敏感信息识别与脱敏 HTTP API",
     version="0.1.0",
@@ -149,3 +152,10 @@ async def stop_application_lifecycle():
     import asyncio
     if scheduler._lifecycle is not None:
         await asyncio.to_thread(scheduler._lifecycle.close)
+
+
+app.openapi = lambda: build_openapi(app)
+
+@app.get("/docs", include_in_schema=False)
+async def interactive_api_documentation():
+    return get_swagger_ui_html(openapi_url="openapi.json", title="Desensitize API")

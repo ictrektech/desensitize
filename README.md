@@ -363,3 +363,14 @@ VOS 安装后，应用通过 Scheduler 的可信绑定获得 `lifecycle_protocol
 原生执行端通过 POST /scheduler/api/v1/permits/wait 申请准入，JSON 为 {"request":原 permits 请求,"wait_seconds":30}；默认等待 30 秒，X-VScheduler-Queue-Wait-Seconds 可设为 0..300，0 表示立即尝试。等待只保存身份与顺序，不预约模型权重，不启动或重放推理；超时返回 429 QUEUE_TIMEOUT。V-Voice、Desensitize、V-Sub 在本地执行锁之前进入统一队列，同一已批准原生进程只保留一条执行通道；不同进程的实际副本分别预算。授权强制请求先行，其后按本次任务优先级、等待老化和到达顺序执行。其他应用申请资源不会无条件卸载空闲 Ollama，只有内存不足才请求卸载，确认停止后才释放预算。
 
 Native executors acquire admission with POST /scheduler/api/v1/permits/wait and {"request":the existing permits request,"wait_seconds":30}. X-VScheduler-Queue-Wait-Seconds accepts 0..300; the default is 30 and 0 attempts immediate admission. Waiters retain identity and ordering only, reserve no model weights, and never start or replay inference. A deadline returns 429 QUEUE_TIMEOUT. V-Voice, Desensitize and V-Sub enter the central queue before their local execution locks. One approved native process uses one execution lane; actual copies in different processes are budgeted separately. Authorized forced requests run first, followed by request priority, aging and arrival order. Other applications no longer unconditionally unload idle Ollama models: unloading requires memory pressure and confirmed native stop before releasing the budget.
+
+### 完整 API 参考 / Complete API reference
+
+应用内“接入指南”提供可交互的全量请求/返回字段参考及 OpenAPI 下载：
+`/api/com.ictrek.desensitize/docs`、`/api/com.ictrek.desensitize/openapi.json`。
+
+- [中文字段与调用流程](ictrek.app/docs/api-reference.zh.md)
+- [English API contracts and workflows](ictrek.app/docs/api-reference.en.md)
+
+文档区分共享规则管理、纯正则、需调度许可的 NER/OCR，以及内部应用身份绑定；说明保留字段、可逆图片账本、部分还原和错误/重试。
+此次仅更新源码与文档，随本应用下次发版进入安装界面。

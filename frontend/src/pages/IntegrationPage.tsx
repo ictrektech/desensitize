@@ -1,8 +1,15 @@
+import { API_BASE } from '../api/client'
 import { useI18n } from '../i18n'
 export default function IntegrationPage() {
   const { t } = useI18n()
   return (
     <div>
+      <div className="card" id="api-reference">
+        <div className="card-title">{t("完整 API 字段参考")}</div>
+        <p>{t("按接口查看全部请求参数、默认值、返回字段和错误；规则为全局共享，NER/OCR 还需调度许可。")}</p>
+        <p><a href={`${API_BASE}/docs`} target="_blank" rel="noreferrer">{t("打开交互式 API 文档")}</a> · <a href={`${API_BASE}/openapi.json`} target="_blank" rel="noreferrer">OpenAPI JSON</a></p>
+        <nav><a href="#api-workflows">{t("API 接口")}</a> · <a href="#api-reference">OpenAPI</a></nav>
+      </div>
       <div className="card">
         <div className="card-title">{t("服务信息")}</div>
         <table>
@@ -48,7 +55,7 @@ POST $BASE_URL/api/v1/desensitize/text`}</div>
       </div>
 
       <div className="card">
-        <div className="card-title">{t("API 接口")}</div>
+        <div className="card-title" id="api-workflows">{t("API 接口")}</div>
 
         <div className="integration-section">
           <h3>{t("POST /api/v1/desensitize/text — 单文本脱敏")}</h3>

@@ -1,4 +1,4 @@
-const API_BASE = (window as any).__API_BASE__ || '/api/com.ictrek.desensitize';
+export const API_BASE = (window as any).__API_BASE__ || '/api/com.ictrek.desensitize';
 
 export interface Rule {
   id: string;

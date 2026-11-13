@@ -372,7 +372,7 @@ verify_package() {
   if printf '%s\n' "$compose_text" | awk '/^[[:space:]]*image:/ {print $2}' | grep -v '^[^/[:space:]]\+\.[^/[:space:]]\+/' | grep -q .; then
     die 'docker-compose.yml contains short image reference'
   fi
-  printf '%s\n' "$compose_text" | grep -Fq 'HeadersRegexp(`Sec-Fetch-Dest`, `document`)' || die 'top-level document redirect missing'
+  printf '%s\n' "$compose_text" | grep -Fq 'HeaderRegexp(`Sec-Fetch-Dest`, `document`)' || die 'top-level document redirect missing'
   printf '%s\n' "$compose_text" | grep -Fq "${ROUTER_HASH_PATH}" || die "top-level redirect must target ${ROUTER_HASH_PATH}"
   printf '%s\n' "$compose_text" | grep -Eq '^  vos_default:$' || die 'docker-compose.yml must declare the vos_default network'
   printf '%s\n' "$compose_text" | grep -Eq '^    external: true$' || die 'vos_default must be an external VOS network'

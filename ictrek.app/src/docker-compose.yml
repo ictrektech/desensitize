@@ -12,7 +12,7 @@ x-desensitize-frontend-base: &desensitize-frontend-base
   labels:
     - "traefik.enable=true"
     - "traefik.docker.network=vos_default"
-    - "traefik.http.routers.desensitize-top-open.rule=PathPrefix(`/app/com.ictrek.desensitize`) && HeadersRegexp(`Sec-Fetch-Dest`, `document`)"
+    - "traefik.http.routers.desensitize-top-open.rule=(Path(`/app/com.ictrek.desensitize`) || Path(`/app/com.ictrek.desensitize/`)) && HeaderRegexp(`Sec-Fetch-Dest`, `document`)"
     - "traefik.http.routers.desensitize-top-open.priority=1000"
     - "traefik.http.routers.desensitize-top-open.service=desensitize-web"
     - "traefik.http.routers.desensitize-top-open.middlewares=desensitize-top-open-redirect"

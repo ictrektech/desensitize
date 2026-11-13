@@ -154,3 +154,5 @@ OCR is conservative by default for weaker devices:
 | `/api/v1/desensitize/image` | POST | OCR-based image desensitization |
 | `/api/v1/desensitize/image/restore` | POST | Restore reversible image redaction |
 | `/health` | GET | Health check |
+
+On VOS with Traefik v3, opening the app root directly in a browser redirects to its VOS page. Embedded pages and API requests use their existing routes.
